@@ -8,6 +8,9 @@ COPY server/mvnw ./
 COPY server/.mvn/ .mvn/
 COPY server/pom.xml ./
 
+# Ensure mvnw is executable
+RUN chmod +x mvnw
+
 # Download dependencies
 RUN ./mvnw dependency:go-offline
 
