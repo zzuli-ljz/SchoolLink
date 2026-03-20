@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <title>系统管理员主页</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script src="/js/auth.js"></script>
+  <script src="/js/dashboard.js?v=2"></script>
+  <style>
+    .section { display: none; }
+    .section.active { display: block; }
+    .card { margin-bottom: 20px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; color: #888; }
+    .form-group input, .form-group select { 
+        width: 100%; padding: 8px; background: #0d141f; border: 1px solid #2a3b4d; color: white; border-radius: 4px;
+    }
+    .toggle-switch { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .toggle-switch input { width: auto; }
+    
+    .table { width: 100%; border-collapse: collapse; }
+    .table th, .table td { padding: 10px; text-align: left; border-bottom: 1px solid #2a3b4d; }
+    .status-enabled { color: #4cd964; }
+    .status-disabled { color: #ff3b30; }
+    
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; justify-content: center; align-items: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: #16212e; padding: 20px; border-radius: 8px; width: 400px; max-width: 90%; }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <div class="layout">
+      <aside class="sidebar">
+        <div style="padding: 20px; font-weight: bold; font-size: 18px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">
+            系统管理中心
+        </div>
+        <ul class="menu">
+          <li><a href="#sec-overview" class="menu-item active" onclick="showSection('sec-overview')">概览</a></li>
+          <li><a href="#sec-config" class="menu-item" onclick="showSection('sec-config')">系统配置</a></li>
+          <li><a href="#sec-users" class="menu-item" onclick="showSection('sec-users')">账号管理</a></li>
+          <li><a href="#" onclick="logout()" class="menu-item">退出登录</a></li>
+        </ul>
+      </aside>
+
+      <main class="main">
+        <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 class="title">系统管理员控制台</h2>
+          <div class="user-info">系统管理员 | 在线</div>
+        </header>
+
+        <!-- Overview -->
+        <section id="sec-overview" class="section active">
+            <div class="card">
+                <h3>欢迎回来</h3>
+                <p>这里是系统全局管控核心。您可以进行系统基础配置、权限分配、数据安全与维护。</p>
+            </div>
+            <div class="card-grid">
+                <div class="card">
+                    <h4>系统状态</h4>
+                    <p style="color:#4cd964; font-size: 24px;">运行正常</p>
+                </div>
+                <div class="card">
+                    <h4>总用户数</h4>
+                    <p id="totalUsers" style="font-size: 24px;">-</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- System Config -->
+        <section id="sec-config" class="section">
+            <div class="card">
+                <h3>系统基础配置</h3>
+                <form id="configForm" onsubmit="saveConfig(event)">
+                    <div class="form-group">
+                        <label>系统名称</label>
+                        <input type="text" name="systemName" id="cfgSystemName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Logo URL</label>
+                        <input type="text" name="logoUrl" id="cfgLogoUrl">
+                    </div>
+                    <div class="form-group">
+                        <label>附件上传限制 (MB)</label>
+                        <input type="number" name="maxAttachmentSizeMb" id="cfgMaxAttachmentSizeMb" required>
+                    </div>
+                    
+                    <h4>功能模块开关</h4>
+                    <div class="form-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="cfgModuleNotice"> 启用通知模块
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="cfgModuleAssignment"> 启用作业模块
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="cfgModuleAttendance"> 启用考勤模块
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn">保存配置</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- User Management -->
+        <section id="sec-users" class="section">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                    <h3>账号管理</h3>
+                    <div>
+                        <button class="btn" onclick="openImportModal()">批量导入</button>
+                        <button class="btn" onclick="loadUsers()">刷新列表</button>
+                    </div>
+                </div>
+                
+                <input type="text" id="userSearch" placeholder="搜索用户名..." onkeyup="filterUsers()" style="padding:8px; width:200px; margin-bottom:10px; background:#0d141f; border:1px solid #2a3b4d; color:white; border-radius:4px;">
+                
+                <div style="overflow-x:auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户名</th>
+                                <th>角色</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Import Modal -->
+  <div id="importModal" class="modal">
+    <div class="modal-content">
+        <h3>批量导入账号</h3>
+        <p>请输入账号列表（每行一个），格式：<br><b>用户名, 密码, 角色</b><br>
+        <span style="font-size:12px; color:#888;">角色支持：老师、学生、家长、学校管理员</span></p>
+        <textarea id="importJson" rows="10" placeholder="例如：
+zhangsan, 123456, 老师
+lisi, 123456, 学生
+wangwu, 123456, 家长" style="width:100%; background:#0d141f; border:1px solid #2a3b4d; color:white; padding:8px; font-family: monospace;"></textarea>
+        <div style="margin-top:10px; text-align:right;">
+            <button class="btn" style="background:#444;" onclick="closeImportModal()">取消</button>
+            <button class="btn" onclick="submitImport()">导入</button>
+        </div>
+    </div>
+  </div>
+
+  <!-- Reset Password Modal -->
+  <div id="resetPwdModal" class="modal">
+    <div class="modal-content">
+        <h3>重置密码</h3>
+        <input type="hidden" id="resetUserId">
+        <div class="form-group">
+            <label>新密码</label>
+            <input type="text" id="newPassword">
+        </div>
+        <div style="margin-top:10px; text-align:right;">
+            <button class="btn" style="background:#444;" onclick="document.getElementById('resetPwdModal').classList.remove('active')">取消</button>
+            <button class="btn" onclick="submitResetPwd()">确认重置</button>
+        </div>
+    </div>
+  </div>
+
+<script>
+    // Tab switching
+    function showSection(id) {
+        document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        document.querySelector(`a[href="#${id}"]`).classList.add('active');
+        
+        if (id === 'sec-config') loadConfig();
+        if (id === 'sec-users') loadUsers();
+    }
+
+    // Config Logic
+    async function loadConfig() {
+        try {
+            const cfg = await DashboardAPI.apiGet('/api/admin/config');
+            document.getElementById('cfgSystemName').value = cfg.systemName;
+            document.getElementById('cfgLogoUrl').value = cfg.logoUrl;
+            document.getElementById('cfgMaxAttachmentSizeMb').value = cfg.maxAttachmentSizeMb;
+            document.getElementById('cfgModuleNotice').checked = cfg.moduleNoticeEnabled;
+            document.getElementById('cfgModuleAssignment').checked = cfg.moduleAssignmentEnabled;
+            document.getElementById('cfgModuleAttendance').checked = cfg.moduleAttendanceEnabled;
+        } catch (e) {
+            console.error(e);
+            alert('加载配置失败');
+        }
+    }
+
+    async function saveConfig(e) {
+        e.preventDefault();
+        const body = {
+            systemName: document.getElementById('cfgSystemName').value,
+            logoUrl: document.getElementById('cfgLogoUrl').value,
+            maxAttachmentSizeMb: parseInt(document.getElementById('cfgMaxAttachmentSizeMb').value),
+            moduleNoticeEnabled: document.getElementById('cfgModuleNotice').checked,
+            moduleAssignmentEnabled: document.getElementById('cfgModuleAssignment').checked,
+            moduleAttendanceEnabled: document.getElementById('cfgModuleAttendance').checked
+        };
+        try {
+            await DashboardAPI.apiPut('/api/admin/config', body);
+            alert('保存成功');
+        } catch (e) {
+            console.error(e);
+            let msg = '保存失败';
+            if (e.data && e.data.error) msg += ': ' + e.data.error;
+            else if (e.message) msg += ': ' + e.message;
+            else if (e.status) msg += ` (Status ${e.status})`;
+            alert(msg);
+        }
+    }
+
+    // User Logic
+    let allUsers = [];
+
+    async function loadUsers() {
+        const tbody = document.getElementById('userTableBody');
+        tbody.innerHTML = '<tr><td colspan="5">加载中...</td></tr>';
+        try {
+            // Add timestamp to prevent caching
+            allUsers = await DashboardAPI.apiGet('/api/admin/users?t=' + Date.now());
+            document.getElementById('totalUsers').innerText = allUsers.length;
+            renderUsers(allUsers);
+        } catch (e) {
+            console.error("Load users failed:", e);
+            tbody.innerHTML = '<tr><td colspan="5">加载失败: ' + (e.message || e.status || '未知错误') + '</td></tr>';
+        }
+    }
+
+    function renderUsers(users) {
+        const tbody = document.getElementById('userTableBody');
+        if (!users.length) {
+            tbody.innerHTML = '<tr><td colspan="5">无用户</td></tr>';
+            return;
+        }
+        tbody.innerHTML = users.map(u => `
+            <tr>
+                <td>${u.id}</td>
+                <td>${u.username}</td>
+                <td>${u.role}</td>
+                <td><span class="${u.enabled ? 'status-enabled' : 'status-disabled'}">${u.enabled ? '启用' : '禁用'}</span></td>
+                <td>
+                    <div style="display:flex; gap:4px; flex-wrap:nowrap;">
+                        <button class="btn" style="padding:2px 6px; font-size:11px; width:auto;" onclick="toggleStatus(${u.id}, ${!u.enabled})">${u.enabled ? '禁用' : '启用'}</button>
+                        <button class="btn" style="padding:2px 6px; font-size:11px; width:auto; background:#e6a23c;" onclick="openResetPwd(${u.id})">重置密码</button>
+                        <button class="btn" style="padding:2px 6px; font-size:11px; width:auto; background:#ff3b30;" onclick="deleteUser(${u.id})">删除</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function filterUsers() {
+        const term = document.getElementById('userSearch').value.toLowerCase();
+        const filtered = allUsers.filter(u => u.username.toLowerCase().includes(term));
+        renderUsers(filtered);
+    }
+
+    async function deleteUser(id) {
+        if (!confirm('确定要删除该用户吗？此操作不可恢复！')) return;
+        try {
+            await DashboardAPI.apiDelete(`/api/admin/users/${id}`);
+            alert('删除成功');
+            loadUsers();
+        } catch (e) {
+            console.error(e);
+            let msg = '删除失败';
+            if (e.data && e.data.error) msg = e.data.error;
+            else if (typeof e.data === 'string') msg = e.data;
+            else if (e.status === 403) msg = '权限不足 (403)';
+            else if (e.status === 404) msg = '用户不存在 (404)';
+            else if (e.message) msg = e.message;
+            alert(msg);
+        }
+    }
+
+    async function toggleStatus(id, enabled) {
+        if (!confirm(`确定要${enabled ? '启用' : '禁用'}该账号吗？`)) return;
+        try {
+            console.log(`Toggling status for user ${id} to ${enabled}`);
+            await DashboardAPI.apiPut(`/api/admin/users/${id}/status`, { enabled });
+            loadUsers();
+        } catch (e) {
+            console.error(e);
+            let msg = '操作失败';
+            if (e.data && e.data.error) msg = e.data.error;
+            else if (typeof e.data === 'string') msg = e.data;
+            else if (e.status === 403) msg = '权限不足 (403)';
+            else if (e.status === 404) msg = '用户不存在 (404)';
+            else if (e.message) msg = e.message;
+            else if (e.status) msg = `请求失败 (状态码: ${e.status})`;
+            
+            alert(msg);
+        }
+    }
+
+    function openResetPwd(id) {
+        document.getElementById('resetUserId').value = id;
+        document.getElementById('newPassword').value = '';
+        document.getElementById('resetPwdModal').classList.add('active');
+    }
+
+    async function submitResetPwd() {
+        const id = document.getElementById('resetUserId').value;
+        const password = document.getElementById('newPassword').value;
+        if (!password) return alert('请输入密码');
+        
+        try {
+            await DashboardAPI.apiPut(`/api/admin/users/${id}/reset-password`, { password });
+            alert('重置成功');
+            document.getElementById('resetPwdModal').classList.remove('active');
+            loadUsers(); // Refresh list if needed (optional)
+        } catch (e) {
+            console.error(e);
+            let msg = '重置失败';
+            if (e.data && e.data.error) msg = e.data.error;
+            else if (typeof e.data === 'string') msg = e.data;
+            else if (e.status === 403) msg = '权限不足 (403)';
+            else if (e.status === 404) msg = '用户不存在 (404)';
+            else if (e.message) msg = e.message;
+            
+            alert(msg);
+        }
+    }
+
+    // Import Logic
+    function openImportModal() {
+        document.getElementById('importModal').classList.add('active');
+    }
+
+    function closeImportModal() {
+        document.getElementById('importModal').classList.remove('active');
+    }
+
+    async function submitImport() {
+        const text = document.getElementById('importJson').value.trim();
+        if (!text) return;
+
+        let data = [];
+        try {
+            if (text.startsWith('[')) {
+                data = JSON.parse(text);
+            } else {
+                // Line based parsing
+                const lines = text.split('\n');
+                for (let line of lines) {
+                    line = line.trim();
+                    if (!line) continue;
+                    // Split by comma (English or Chinese) or tab
+                    const parts = line.split(/[,，\t]+/).map(s => s.trim());
+                    if (parts.length >= 3) {
+                        data.push({
+                            username: parts[0],
+                            password: parts[1],
+                            role: parts[2]
+                        });
+                    }
+                }
+            }
+
+            if (!Array.isArray(data) || data.length === 0) throw new Error('没有有效的账号数据，请检查格式');
+            
+            const res = await DashboardAPI.apiPost('/api/admin/users/import', data);
+            
+            let msg = `导入成功，共处理 ${res.imported} 条记录`;
+            if (res.details && res.details.length > 0) {
+                // Check if any failures
+                const failures = res.details.filter(d => d.startsWith('Skip') || d.startsWith('Error'));
+                if (failures.length > 0) {
+                    msg += `\n\n部分导入未成功:\n` + failures.slice(0, 10).join('\n') + (failures.length > 10 ? '\n...' : '');
+                }
+            }
+            alert(msg);
+            
+            closeImportModal();
+            loadUsers();
+            document.getElementById('importJson').value = '';
+        } catch (e) {
+            console.error(e);
+            let msg = '导入失败';
+            if (e.data && e.data.error) msg += ': ' + e.data.error;
+            else if (e.message) msg += ': ' + e.message;
+            else if (e.status) msg += ` (Status ${e.status})`;
+            else msg += ': 格式错误或网络异常';
+            alert(msg);
+        }
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', () => {
+        requireRole('SYSTEM_ADMIN');
+        // Initial load based on hash or default
+        const hash = window.location.hash ? window.location.hash.substring(1) : 'sec-overview';
+        showSection(hash);
+    });
+
+    function showSection(id) {
+        // Hide all sections
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        // Deactivate all menu items
+        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+
+        // Show target section
+        const target = document.getElementById(id);
+        if (target) target.classList.add('active');
+
+        // Activate menu item
+        const link = document.querySelector(`a[href="#${id}"]`);
+        if (link) link.classList.add('active');
+
+        // Load data if needed
+        if (id === 'sec-users') loadUsers();
+        if (id === 'sec-config') loadConfig();
+    }
+</script>
+</body>
+</html>

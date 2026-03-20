@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <title>班级家长管理</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script src="/js/auth.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <style>
+    /* 紧凑型按钮与工具栏样式 */
+    .btn-compact { display:inline-flex; align-items:center; justify-content:center; width:auto !important; padding:6px 10px; font-size:13px; }
+    .btn-danger { background: linear-gradient(90deg, #ff4d4f, #ff7875); color:#fff; }
+    .toolbar { display:flex; align-items:center; gap:8px; }
+    .toolbar-left { display:flex; align-items:center; gap:8px; }
+    .toolbar-right { margin-left:auto; display:flex; align-items:center; gap:12px; font-size:13px; color:#cfe8ff; }
+    .toolbar-right label { display:flex; align-items:center; gap:6px; }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <h1 class="title">班级家长管理</h1>
+    <p><a id="backLink" href="#">返回班级详情</a></p>
+
+    <section class="card" style="margin-top:10px;">
+      <h3>家长账户列表</h3>
+      <div id="parentToolbar" class="toolbar" style="margin:8px 0;">
+        <div class="toolbar-left">
+          <button class="btn btn-compact btn-danger" id="btnDeleteSelected">与学生解绑并删除</button>
+          <button class="btn btn-compact" id="btnExport">导出Excel</button>
+        </div>
+        <div class="toolbar-right">
+          <label><input type="checkbox" id="chkAll" /> 全选</label>
+          <span id="parentCount"></span>
+        </div>
+      </div>
+      <table class="table" style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d; width:56px;">选择</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">ID</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">用户名</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d; width:120px;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="parentTbody"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    // 确保老师身份登录
+    requireRole('TEACHER');
+    function qs(name){
+      const u = new URL(window.location.href);
+      return u.searchParams.get(name);
+    }
+
+    const classId = Number(qs('classId'));
+    document.getElementById('backLink').href = `/home/class.html?classId=${classId}`;
+
+    const parentTbody = document.getElementById('parentTbody');
+    const chkAll = document.getElementById('chkAll');
+    const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+    const btnExport = document.getElementById('btnExport');
+    const parentCount = document.getElementById('parentCount');
+    let parentsData = [];
+    let isOwner = false;
+    let currentUser = null;
+
+    function getUsernameFromToken() {
+        const token = localStorage.getItem('token');
+        if(!token) return null;
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            return JSON.parse(jsonPayload).sub;
+        } catch (e) { return null; }
+    }
+
+    async function checkOwner() {
+        currentUser = getUsernameFromToken();
+        if(!currentUser) return;
+        try {
+            const c = await DashboardAPI.apiGet(`/api/classes/${classId}`);
+            isOwner = (c.ownerUsername === currentUser);
+        } catch(e) { console.error("Failed to fetch class info", e); }
+        
+        // Update UI elements
+        if(btnDeleteSelected) btnDeleteSelected.style.display = isOwner ? 'inline-flex' : 'none';
+        if(chkAll) chkAll.disabled = !isOwner;
+    }
+
+    async function loadParents(){
+      parentTbody.innerHTML = `<tr><td colspan="4" style="padding:8px; color:#cfe8ff;">正在加载...</td></tr>`;
+      try {
+        const parents = await DashboardAPI.apiGet(`/api/classes/${classId}/parents`);
+        parentsData = Array.isArray(parents) ? parents : [];
+        parentCount.textContent = parentsData.length ? `共 ${parentsData.length} 人` : '暂无家长账户';
+        if (!parentsData.length) { parentTbody.innerHTML = ''; return; }
+        const rows = parentsData.map(p => (
+          `<tr>
+            <td style="padding:6px; border-bottom:1px solid #2a3b4d;"><input type="checkbox" class="chk-row" data-id="${p.id}" ${!isOwner ? 'disabled' : ''} /></td>
+            <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${p.id}</td>
+            <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${p.username || ''}</td>
+            <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${p.phoneNumber || '未填写'}</td>
+            <td style="padding:6px; border-bottom:1px solid #2a3b4d;">
+              ${isOwner ? `<button class="btn btn-compact" data-act="edit-parent" data-id="${p.id}">编辑</button>` : ''}
+            </td>
+          </tr>`
+        )).join('');
+        parentTbody.innerHTML = rows;
+        chkAll.checked = false;
+      } catch(err){
+        parentTbody.innerHTML = `<tr><td colspan="4" style="padding:8px; color:#ffb3b3;">加载失败</td></tr>`;
+      }
+    }
+
+    document.addEventListener('click', async function(e){
+      const t = e.target;
+      if (!t || !t.dataset || !t.dataset.act) return;
+      const id = Number(t.dataset.id);
+      const act = t.dataset.act;
+
+      if (act === 'edit-parent') {
+        const username = prompt('输入新的用户名（可留空不改）');
+        const password = prompt('输入新的密码（可留空不改）');
+        try {
+          await DashboardAPI.apiPut(`/api/parents/${id}`, { username, password });
+          await loadParents();
+        } catch(err){
+          alert('编辑失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误'));
+        }
+      }
+    });
+
+    // 批量操作与导出
+    if (chkAll) {
+      chkAll.addEventListener('change', function(){
+        const boxes = document.querySelectorAll('input.chk-row');
+        boxes.forEach(b => { b.checked = chkAll.checked; });
+      });
+    }
+
+    if (btnDeleteSelected) {
+      btnDeleteSelected.addEventListener('click', async function(){
+        const ids = Array.from(document.querySelectorAll('input.chk-row:checked')).map(b => Number(b.dataset.id));
+        if (!ids.length) { alert('请先勾选需要删除的家长账户'); return; }
+        if (!confirm(`确定删除选中的 ${ids.length} 个家长账户？`)) return;
+        try {
+          await Promise.all(ids.map(id => DashboardAPI.apiDelete(`/api/parents/${id}`)));
+          await loadParents();
+        } catch(err){
+          alert('删除失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误'));
+        }
+      });
+    }
+
+    if (btnExport) {
+      btnExport.addEventListener('click', function(){
+        if (!parentsData.length) { alert('暂无家长记录可导出'); return; }
+        const header = ['ID','用户名','联系电话'];
+        const rows = parentsData.map(p => [p.id, p.username || '', p.phoneNumber || '']);
+        const csv = [header.join(','), ...rows.map(r => r.map(x => typeof x === 'string' && x.includes(',') ? `"${x}"` : x).join(','))].join('\n');
+        const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `班级${classId}-家长名册.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', async function(){
+      if (!classId) {
+        alert('缺少 classId 参数');
+        return;
+      }
+      await checkOwner();
+      await loadParents();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>家校通管理系统 - 连接家校，共育未来</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <style>
+    /* 首页专用样式 */
+    body {
+      background: radial-gradient(circle at 50% 10%, #1e2a38 0%, #111827 100%);
+      color: #e3f2fd;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 顶部导航 */
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 5%;
+      background: rgba(17, 24, 39, 0.8);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .brand {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #2196F3, #00BCD4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 1px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 30px;
+    }
+    .nav-item {
+      color: #b0bec5;
+      text-decoration: none;
+      font-size: 15px;
+      transition: color 0.3s;
+    }
+    .nav-item:hover { color: #fff; }
+
+    /* 主容器 */
+    .hero-container {
+      display: flex;
+      flex: 1;
+      width: 100%;
+      max-width: 1400px;
+      margin: 0 auto;
+      align-items: center;
+      justify-content: space-between;
+      padding: 40px 5%;
+      box-sizing: border-box;
+    }
+
+    /* 左侧文案区 */
+    .hero-text {
+      flex: 1;
+      max-width: 600px;
+      padding-right: 40px;
+    }
+    .hero-title {
+      font-size: 48px;
+      font-weight: 800;
+      margin: 0 0 20px;
+      line-height: 1.2;
+      background: linear-gradient(135deg, #fff 0%, #90caf9 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-subtitle {
+      font-size: 18px;
+      color: #90a4ae;
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 40px;
+    }
+    .feature-item {
+      background: rgba(255,255,255,0.05);
+      padding: 15px;
+      border-radius: 12px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .feature-icon { font-size: 24px; margin-bottom: 10px; display: block; }
+    .feature-text { font-size: 14px; color: #cfd8dc; }
+
+    /* 右侧登录区 */
+    .login-wrapper {
+      flex: 0 0 420px;
+      animation: floatUp 0.8s ease-out;
+    }
+    @keyframes floatUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* 复用并覆盖原登录卡片样式 */
+    .login-form {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      padding: 30px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+    .title { margin-bottom: 30px; font-size: 24px; }
+    
+    /* 底部 */
+    .footer {
+      text-align: center;
+      padding: 20px;
+      color: #546e7a;
+      font-size: 13px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* 响应式 */
+    @media (max-width: 900px) {
+      .hero-container { flex-direction: column; text-align: center; }
+      .hero-text { padding: 0; margin-bottom: 40px; }
+      .feature-grid { justify-content: center; }
+      .login-wrapper { width: 100%; max-width: 400px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 导航栏 -->
+  <nav class="navbar">
+    <div class="brand">🏫 SchoolLink</div>
+  </nav>
+
+  <!-- 主体区域 -->
+  <div class="hero-container">
+    <!-- 左侧介绍 -->
+    <div class="hero-text">
+      <h1 class="hero-title">构建更紧密的<br>家校沟通桥梁</h1>
+      <p class="hero-subtitle">
+        SchoolLink 致力于为学校、老师、家长和学生提供一站式管理平台。
+        从作业发布到成绩分析，从考勤管理到请假审批，让教育协作更高效、更透明。
+      </p>
+      
+      <div class="feature-grid">
+        <div class="feature-item">
+          <span class="feature-icon">📚</span>
+          <span class="feature-text">作业管理</span>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">📊</span>
+          <span class="feature-text">成绩分析</span>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">📝</span>
+          <span class="feature-text">在线请假</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧登录框 -->
+    <div class="login-wrapper">
+      <form id="loginForm" class="login-form">
+        <h2 class="title">欢迎回来</h2>
+        <div class="form-row">
+          <span class="icon">📘</span>
+          <select id="role" class="input">
+            <option value="" disabled selected>选择您的角色</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <span class="icon">👤</span>
+          <input id="username" class="input" type="text" placeholder="请输入账号" required />
+        </div>
+        <div class="form-row">
+          <span class="icon">🔒</span>
+          <input id="password" class="input" type="password" placeholder="请输入密码" required />
+        </div>
+        <button type="submit" class="btn">立即登录</button>
+        <p id="msg" class="msg"></p>
+        <div style="text-align: center; margin-top: 15px; font-size: 14px;">
+          <span style="color: #607d8b;">还没有账号？</span>
+          <a href="/register.html" style="color: #2196F3; text-decoration: none;">立即注册</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="footer">
+    &copy; 2025 SchoolLink 家校通管理系统. All rights reserved.
+  </footer>
+
+  <!-- 复用原有的 JS 逻辑 -->
+  <script src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>家长/学生注册</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="login-container">
+    <h1 class="title">家长/学生注册</h1>
+    <form id="registerForm" class="login-form">
+      <div class="form-row">
+        <span class="icon">📘</span>
+        <select id="role" class="input">
+          <option value="" disabled selected>选择角色（仅限家长/学生）</option>
+          <option value="PARENT">家长</option>
+          <option value="STUDENT">学生</option>
+        </select>
+      </div>
+      <div id="roleFields">
+        <div class="form-row" data-role="PARENT" style="display:none;">
+          <span class="icon">👦</span>
+          <input id="studentNameForParent" class="input" type="text" placeholder="学生姓名（家长注册）" />
+        </div>
+        <div class="form-row" data-role="PARENT" style="display:none;">
+          <span class="icon">🔗</span>
+          <select id="relationship" class="input">
+            <option value="" disabled selected>与学生关系</option>
+            <option value="父亲">父亲</option>
+            <option value="母亲">母亲</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        <div class="form-row" data-role="PARENT" style="display:none;">
+          <span class="icon">📱</span>
+          <input id="phoneNumber" class="input" type="text" placeholder="家长联系电话" />
+        </div>
+        <div class="form-row" data-role="STUDENT" style="display:none;">
+          <span class="icon">👦</span>
+          <input id="studentNameForStudent" class="input" type="text" placeholder="学生姓名（学生注册）" />
+        </div>
+        <div class="form-row" data-role="STUDENT" style="display:none;">
+          <span class="icon">🪪</span>
+          <input id="studentNo" class="input" type="text" placeholder="学生学号（学生注册）" />
+        </div>
+        <p class="msg">提示：系统会根据填写信息自动生成用户名。</p>
+      </div>
+      <div class="form-row">
+        <span class="icon">🔒</span>
+        <input id="password" class="input" type="password" placeholder="请输入密码" required />
+      </div>
+      <div class="form-row">
+        <span class="icon">🏷️</span>
+        <input id="inviteCode" class="input" type="text" placeholder="输入班主任提供的邀请码" required />
+      </div>
+      <button type="submit" class="btn">注册</button>
+      <p id="msg" class="msg"></p>
+      <p class="msg">管理员与老师请联系上级管理员添加账号</p>
+      <p><a href="/">返回登录</a></p>
+    </form>
+  </div>
+
+  <div id="bindModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:999;">
+    <div class="card" style="width:320px; background:#162436; padding:20px; border:1px solid #2a3b4d;">
+      <h3 style="margin-top:0;">确认绑定学生</h3>
+      <p style="color:#cfe8ff; margin:15px 0;">
+        系统已找到学生：<br>
+        <strong>姓名：<span id="modalStudentName"></span></strong><br>
+        <strong>学号：<span id="modalStudentNo"></span></strong>
+      </p>
+      <p style="color:#ff4d4f; font-size:13px;">注意：绑定后不可自行修改。请确认这是您的孩子。</p>
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+        <button id="btnCancelBind" class="btn" style="background:#2a3b4d; width:auto; padding:0 15px;">取消</button>
+        <button id="btnConfirmBind" class="btn" style="width:auto; padding:0 15px;">确认注册</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/register.js"></script>
+</body>
+</html>

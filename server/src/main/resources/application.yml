@@ -1,0 +1,29 @@
+server:
+  port: 8081
+  address: 0.0.0.0
+
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/schoollink-db-v2;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: never
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+security:
+  jwt:
+    # 32字节以上的 Base64 编码密钥（示例，后续请替换为环境变量）
+    secret: dGhpcy1pcy1hLXNlY3JldC1rZXktZm9yLXNjaG9vbGxpbmstamF2YS1qd3Qtc2lnbg==
+    expMinutes: 120

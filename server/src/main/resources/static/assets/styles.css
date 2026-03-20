@@ -1,0 +1,61 @@
+/* 背景与总体风格 */
+:root { --primary:#1976d2; --accent:#00bcd4; --danger:#d32f2f; --ok:#2e7d32; }
+body { margin:0; min-height:100vh; display:grid; place-items:center; background: radial-gradient(1200px 600px at 10% 10%, #0d47a1 0, #0b2a63 35%, #091f3f 70%), linear-gradient(120deg, #1a237e 0%, #004e92 100%); color:#e3f2fd; }
+
+/* 标题动效 */
+@keyframes glow { 0%,100% { text-shadow:0 0 10px rgba(0,188,212,.5) } 50% { text-shadow:0 0 22px rgba(25,118,210,.8) } }
+.title { text-align:center; color:#e3f2fd; margin-bottom:24px; font-weight:800; letter-spacing:2px; animation:glow 2.8s ease-in-out infinite; }
+
+/* 登录卡片 */
+.login-container { width: 92%; max-width: 480px; padding: 20px; }
+/* 更宽的主页容器（用于各角色主页） */
+.dashboard-container { width: 96%; max-width: 1200px; padding: 20px; }
+.login-form { background: rgba(255,255,255,0.08); backdrop-filter: blur(6px); padding: 20px; border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.15); }
+
+/* 表单行与图标轻微动画 */
+.form-row { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+@keyframes float { 0%,100%{ transform:translateY(0)} 50%{ transform:translateY(-2px) } }
+.icon { width: 44px; height: 44px; display:grid; place-items:center; background: linear-gradient(135deg, var(--primary), var(--accent)); color:#fff; border-radius:12px; font-size:20px; animation: float 3s ease-in-out infinite; }
+
+/* 输入控件样式与交互 */
+.input { flex:1; height: 44px; padding: 0 12px; border: 2px solid rgba(255,255,255,0.25); border-radius: 12px; outline: none; background: rgba(255,255,255,0.15); color:#e3f2fd; transition: all .2s ease; }
+.input::placeholder { color:#cfe8ff; }
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,188,212,.25); background: rgba(255,255,255,0.22); }
+select.input { appearance:none; background-image: linear-gradient(135deg, rgba(255,255,255,0.18), rgba(255,255,255,0.12)); }
+
+/* 登录按钮与点击波纹效果 */
+.btn { width:100%; height:46px; border:none; background: linear-gradient(135deg, #1976d2, #00bcd4); color:#fff; border-radius:12px; font-size:16px; cursor:pointer; transition: transform .06s ease, box-shadow .2s ease; box-shadow: 0 10px 20px rgba(0,188,212,.25); }
+.btn:hover { box-shadow: 0 12px 28px rgba(0,188,212,.35); }
+.btn:active { transform: scale(0.98); }
+
+/* 提示文案 */
+.msg { margin-top: 12px; text-align:center; min-height:22px; }
+.msg.error { color: var(--danger); }
+.msg.ok { color: var(--ok); }
+
+/* 仪表盘卡片布局 */
+.card-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-top:16px; }
+.card { background: rgba(255,255,255,0.08); backdrop-filter: blur(6px); padding:16px; border-radius:12px; border:1px solid rgba(255,255,255,0.15); box-shadow: 0 12px 32px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.1); transition: transform .08s ease, box-shadow .2s ease; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(0,0,0,0.35); }
+.card h3 { margin:0 0 8px; font-size:18px; color:#e3f2fd; }
+.card p { margin:0 0 8px; color:#cfe8ff; font-size:14px; }
+.card .action { display:inline-block; color:#80deea; text-decoration:none; font-weight:600; }
+.card .action:hover { text-decoration:underline; }
+
+/* 左侧菜单布局（保留原有配色，只调整布局） */
+.layout { width: 100%; display:flex; gap:16px; align-items:flex-start; }
+.sidebar { width: 220px; background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:12px; box-shadow: 0 12px 32px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.1); }
+.menu { list-style:none; margin:0; padding:8px; }
+.menu-item { display:block; padding:10px 12px; margin:6px 0; border-radius:10px; color:#e3f2fd; text-decoration:none; background: rgba(255,255,255,0.06); }
+.menu-item:hover { background: rgba(0,188,212,0.22); }
+.menu-item.active { background: rgba(0,188,212,0.32); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16); }
+.main { flex:1; }
+
+/* 右侧内容分区切换：默认隐藏，仅激活时显示 */
+.section { display:none; }
+.section.active { display:block; }
+
+/* 通用表单外观复用 */
+.form { background: rgba(255,255,255,0.08); backdrop-filter: blur(6px); padding: 16px; border-radius: 12px; border:1px solid rgba(255,255,255,0.15); box-shadow: 0 12px 32px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.1); }
+.result { margin-top:10px; color:#cfe8ff; font-size:14px; }
+.list-item { padding:8px 10px; margin:8px 0; border-radius:10px; background: rgba(255,255,255,0.06); }

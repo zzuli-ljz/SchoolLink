@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <title>学生主页</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script src="/js/dashboard.js"></script>
+  <style>
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    /* Tabs & List */
+    .tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #2a3b4d; padding-bottom: 5px; }
+    .tab-btn { background: none; border: none; color: #888; cursor: pointer; padding: 8px 12px; font-size: 14px; }
+    .tab-btn.active { color: #fff; border-bottom: 2px solid #2196F3; font-weight: bold; }
+    .tab-btn:hover { color: #ccc; }
+    .assignment-list { display: flex; flex-direction: column; gap: 10px; }
+    .assignment-item { background: #1e2a38; padding: 12px; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 1px solid transparent; }
+    .assignment-item:hover { border-color: #2a3b4d; background: #253345; }
+    .tag { font-size: 12px; padding: 2px 8px; border-radius: 10px; margin-left: 5px; font-weight:bold; }
+    .tag.unfinished { background: #555; color: #eee; }
+    .tag.pending_grading { background: #1976D2; color: #fff; }
+    .tag.completed { background: #388E3C; color: #fff; }
+    .tag.expired { background: #D32F2F; color: #fff; }
+    .tag.returned { background: #FF9800; color: #fff; }
+    
+    .contact-item { padding: 12px; border-bottom: 1px solid #2a3b4d; cursor: pointer; transition: background 0.2s; }
+    .contact-item:hover { background: rgba(255,255,255,0.05); }
+    .contact-item.active { background: rgba(33, 150, 243, 0.2); border-left: 3px solid #2196F3; }
+
+    /* Modal */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: #16212e; padding: 24px; border-radius: 8px; width: 600px; max-width: 90%; color: #cfe8ff; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+    .modal-header { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+    .modal-meta { color: #888; font-size: 13px; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #2a3b4d; }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <h1 class="title">学生主页</h1>
+    <p>这里将承载作业查看与提交、学习辅助资源、活动参与与考勤查看模块。</p>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <ul class="menu">
+          <li><a class="menu-item" href="#sec-classes">我的班级</a></li>
+          <li><a class="menu-item" href="#sec-roster">同学名册</a></li>
+          <li><a class="menu-item" href="#sec-submit">我的作业</a></li>
+          <li><a class="menu-item" href="#sec-grades">我的成绩</a></li>
+          <li><a class="menu-item" href="#sec-notice">消息通知</a></li>
+          <li><a class="menu-item" href="#sec-announcements">学校公告</a></li>
+          <li><a class="menu-item" href="#sec-communication">家校沟通</a></li>
+        </ul>
+      </aside>
+      <main class="main">
+        <section id="sec-classes" class="section card active">
+          <h3>我的班级</h3>
+          <p>查看所属班级。</p>
+          <div id="classList" style="margin-top:10px;">加载中...</div>
+        </section>
+        <section id="sec-roster" class="section card">
+          <h3>同学名册</h3>
+          <p>预览学生列表。</p>
+          <div id="rosterList" style="margin-top:10px;">加载中...</div>
+        </section>
+        <section id="sec-submit" class="section card">
+          <h3>我的作业</h3>
+          <div class="tabs">
+            <button class="tab-btn active" data-filter="UNFINISHED">未完成</button>
+            <button class="tab-btn" data-filter="PENDING_GRADING">待批阅</button>
+            <button class="tab-btn" data-filter="COMPLETED">已完成</button>
+            <button class="tab-btn" data-filter="EXPIRED">已过期</button>
+          </div>
+          <div id="assignmentList" class="assignment-list">加载中...</div>
+        </section>
+        <section id="sec-grades" class="section card">
+          <h3>我的成绩</h3>
+          <p>查看各次考试成绩。</p>
+          <div style="margin-bottom:15px;">
+              <select id="gradeExamSelect" onchange="loadGrades()" style="padding:8px; background:#16212e; color:#fff; border:1px solid #2a3b4d; border-radius:4px; min-width:200px;">
+                  <option value="">请选择考试</option>
+              </select>
+          </div>
+          <div id="gradeList">
+              <div style="color:#888;">请选择一场考试以查看成绩</div>
+          </div>
+        </section>
+        <section id="sec-notice" class="section card">
+          <h3>消息通知</h3>
+          <p>来自老师和学校的消息。</p>
+          <div id="stuNoticeList" class="assignment-list" style="margin-top:10px;">加载中...</div>
+        </section>
+        <section id="sec-announcements" class="section card">
+          <h3>学校公告</h3>
+          <p>全校及班级公告信息。</p>
+          <div id="announcementList" class="assignment-list" style="margin-top:10px;">加载中...</div>
+        </section>
+        <section id="sec-communication" class="section card">
+          <h3>家校沟通</h3>
+          <p>联系老师或家长。</p>
+          <div style="display:flex; height:450px; gap:10px; border:1px solid #2a3b4d; border-radius:4px; margin-top:15px;">
+             <div id="contactList" style="width:30%; border-right:1px solid #2a3b4d; overflow-y:auto; background:rgba(0,0,0,0.2);">
+                <div style="padding:10px; color:#888;">正在加载联系人...</div>
+             </div>
+             <div id="msgConversation" style="flex:1; display:flex; flex-direction:column;">
+                <div id="msgHeader" style="padding:10px; border-bottom:1px solid #2a3b4d; font-weight:bold; background:rgba(255,255,255,0.05);">
+                   请选择联系人
+                </div>
+                <div id="msgList" style="flex:1; overflow-y:auto; padding:10px;"></div>
+                <div style="border-top:1px solid #2a3b4d; padding:10px; background:rgba(0,0,0,0.2);">
+                   <textarea id="msgContent" rows="3" style="width:100%; margin-bottom:5px; background:#16212e; color:#fff; border:1px solid #2a3b4d; padding:5px;" placeholder="输入消息..."></textarea>
+                   <div style="text-align:right;">
+                     <button class="btn" onclick="sendStudentMessage()">发送</button>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <p><a href="/">返回登录</a></p>
+  </div>
+
+  <!-- 作业详情弹窗 -->
+  <div id="assignmentModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header" id="modalTitle">作业标题</div>
+      <div class="modal-meta" id="modalMeta"></div>
+      
+      <div style="margin-bottom:8px; font-weight:bold;">作业内容：</div>
+      <div id="modalBody" style="background:#0d141f; padding:12px; border-radius:4px; min-height:80px; margin-bottom:20px; white-space: pre-wrap; line-height:1.5;"></div>
+      
+      <div id="submissionArea">
+        <div style="margin-bottom:8px; font-weight:bold;">我的提交：</div>
+        <textarea id="modalSubContent" rows="5" style="width:100%; padding:10px; background:#0d141f; border:1px solid #2a3b4d; color:#fff; border-radius:4px; margin-bottom:10px;" placeholder="在此输入作业内容..."></textarea>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button id="btnSubmitModal" class="btn">提交作业</button>
+        </div>
+      </div>
+
+      <div id="feedbackArea" style="display:none; margin-top:20px; border-top:1px solid #2a3b4d; padding-top:15px;">
+          <h4 style="margin:0 0 10px 0;">批阅结果</h4>
+          <div style="background:#1a3c35; padding:15px; border-radius:4px;">
+            <div style="margin-bottom:5px;">分数：<span id="fbScore" style="color:#4CAF50; font-weight:bold; font-size:1.2em;"></span></div>
+            <div>评语：<span id="fbText" style="color:#cfe8ff;"></span></div>
+          </div>
+      </div>
+
+      <div style="margin-top:20px; text-align:right;">
+        <button class="btn" style="background:#37474f;" onclick="document.getElementById('assignmentModal').style.display='none'">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      // Check auth
+      if (window.requireRole) requireRole('STUDENT');
+      
+      const menuItems = Array.from(document.querySelectorAll('.menu-item'));
+      const sections = Array.from(document.querySelectorAll('.section'));
+      function show(id){
+        sections.forEach(s => s.classList.toggle('active', s.id === id));
+        menuItems.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+        if (id === 'sec-submit') loadAssignments();
+        if (id === 'sec-grades') loadGrades();
+        if (id === 'sec-classes') loadMyClasses();
+        if (id === 'sec-roster') loadRoster();
+        if (id === 'sec-notice') loadNotifications();
+        if (id === 'sec-announcements') loadAnnouncements();
+        if (id === 'sec-communication') loadStudentContacts();
+      }
+      if (sections.length) show(sections[0].id);
+      menuItems.forEach(a => {
+        a.addEventListener('click', function(e){
+          e.preventDefault();
+          const href = a.getAttribute('href') || '';
+          const id = href.startsWith('#') ? href.slice(1) : href;
+          if (id) show(id);
+        });
+      });
+    })();
+
+    // 作业模块逻辑
+    let allAssignments = [];
+    let currentFilter = 'UNFINISHED';
+    let currentAssignmentId = null;
+
+    async function loadAssignments() {
+      const listEl = document.getElementById('assignmentList');
+      listEl.innerHTML = '<div style="padding:10px;">加载中...</div>';
+      try {
+        const data = await DashboardAPI.apiGet('/api/student/assignments');
+        allAssignments = data;
+        renderAssignments();
+      } catch(err) {
+        if (err && err.status === 403 && err.data) {
+            if (err.data.error === 'module_disabled') {
+                listEl.innerHTML = '<div style="padding:20px; text-align:center; color:#888;">该模块已被管理员停用</div>';
+            } else if (err.data.error === 'student_not_bound_to_user' || err.data.error === 'not_bound_student') {
+                listEl.innerHTML = '<div style="padding:20px; text-align:center; color:#ff6b6b;">未绑定学生档案</div>';
+            } else {
+                listEl.innerHTML = '<div style="padding:10px; color:#ff6b6b;">加载失败，请重试</div>';
+            }
+        } else {
+            listEl.innerHTML = '<div style="padding:10px; color:#ff6b6b;">加载失败，请重试</div>';
+        }
+      }
+    }
+
+    function renderAssignments() {
+      const listEl = document.getElementById('assignmentList');
+      const filtered = allAssignments.filter(item => {
+        if (currentFilter === 'UNFINISHED') return item.status === 'UNFINISHED' || item.status === 'RETURNED';
+        if (currentFilter === 'PENDING_GRADING') return item.status === 'PENDING_GRADING';
+        if (currentFilter === 'COMPLETED') return item.status === 'COMPLETED';
+        if (currentFilter === 'EXPIRED') return item.status === 'EXPIRED';
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = '<div style="padding:20px; text-align:center; color:#888;">暂无该类作业</div>';
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(item => {
+        const a = item.assignment;
+        return `
+          <div class="assignment-item" onclick="openAssignment(${a.id})">
+            <div style="flex:1;">
+              <div style="font-weight:bold; font-size:15px; margin-bottom:4px;">${a.title}</div>
+              <div style="font-size:12px; color:#888;">
+                发布人: ${item.publisher || '老师'} &nbsp;|&nbsp; 
+                发布日期: ${a.createdAt ? a.createdAt.substring(0,10) : '-'} &nbsp;|&nbsp; 
+                截止日期: ${
+                    (item.status === 'RETURNED' && item.submission && item.submission.extendedDueDate)
+                    ? `<span style="color:#FF9800;">${item.submission.extendedDueDate} (延期)</span>`
+                    : (a.dueDate || '无')
+                }
+              </div>
+            </div>
+            <div class="tag ${item.status.toLowerCase()}">
+              ${getStatusLabel(item.status)}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getStatusLabel(s) {
+      if(s==='UNFINISHED') return '未完成';
+      if(s==='PENDING_GRADING') return '待批阅';
+      if(s==='COMPLETED') return '已完成';
+      if(s==='EXPIRED') return '已过期';
+      if(s==='RETURNED') return '已退回';
+      return s;
+    }
+
+    window.openAssignment = function(id) {
+      const item = allAssignments.find(x => x.assignment.id === id);
+      if (!item) return;
+      currentAssignmentId = id;
+      const a = item.assignment;
+      const sub = item.submission;
+      
+      const dueDateDisplay = (item.status === 'RETURNED' && item.submission && item.submission.extendedDueDate)
+            ? `${item.submission.extendedDueDate} (延期)`
+            : (a.dueDate || '无');
+      document.getElementById('modalTitle').textContent = a.title;
+      document.getElementById('modalMeta').textContent = `发布人: ${item.publisher || '老师'} | 截止日期: ${dueDateDisplay} | 状态: ${getStatusLabel(item.status)}`;
+      document.getElementById('modalBody').textContent = a.content;
+      
+      const subArea = document.getElementById('submissionArea');
+      const fbArea = document.getElementById('feedbackArea');
+      const subContent = document.getElementById('modalSubContent');
+      const btnSubmit = document.getElementById('btnSubmitModal');
+
+      // 重置
+      fbArea.style.display = 'none';
+      subContent.value = '';
+      subContent.disabled = false;
+      btnSubmit.style.display = 'inline-block';
+      btnSubmit.textContent = '提交作业';
+
+      if (sub) {
+        subContent.value = sub.content || '';
+        if (item.status === 'COMPLETED' || item.status === 'PENDING_GRADING' || item.status === 'RETURNED') {
+           if (item.status === 'COMPLETED') {
+             subContent.disabled = true;
+             btnSubmit.style.display = 'none';
+             fbArea.style.display = 'block';
+             document.getElementById('fbScore').textContent = (sub.score !== null) ? sub.score + '分' : '无评分';
+             document.getElementById('fbText').textContent = sub.feedback || '无评语';
+           } else if (item.status === 'RETURNED') {
+             btnSubmit.textContent = '重新提交';
+             if (sub.feedback) {
+                 fbArea.style.display = 'block';
+                 document.getElementById('fbScore').textContent = '需重做';
+                 document.getElementById('fbText').textContent = sub.feedback;
+             }
+           } else {
+             btnSubmit.textContent = '修改提交';
+           }
+        }
+      } else {
+        if (item.status === 'EXPIRED') {
+          subContent.disabled = true;
+          subContent.placeholder = '作业已过期，无法提交';
+          btnSubmit.style.display = 'none';
+        }
+      }
+
+      document.getElementById('assignmentModal').style.display = 'flex';
+    };
+
+    document.getElementById('btnSubmitModal').addEventListener('click', async function() {
+      const content = document.getElementById('modalSubContent').value.trim();
+      if (!content) { alert('请输入内容'); return; }
+      
+      const btn = this;
+      btn.disabled = true;
+      btn.textContent = '提交中...';
+      
+      try {
+        await DashboardAPI.apiPost(`/api/assignments/${currentAssignmentId}/submissions`, { content });
+        alert('提交成功');
+        document.getElementById('assignmentModal').style.display = 'none';
+        loadAssignments(); // 刷新列表
+      } catch(err) {
+        alert('提交失败：' + (err.data ? JSON.stringify(err.data) : '未知错误'));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderAssignments();
+      });
+    });
+
+    // Load Basic Class Info
+    async function loadMyClasses() {
+       const el = document.getElementById('classList');
+       try {
+         const list = await DashboardAPI.apiGet('/api/classes'); 
+         if(Array.isArray(list)) {
+            el.innerHTML = list.map(c => `<div>${c.name} (${c.grade})</div>`).join('');
+         } else {
+            el.innerHTML = '<div style="color:#888;">暂无班级信息</div>';
+         }
+       } catch(e) { el.innerHTML = '暂无班级列表权限或接口'; }
+    }
+
+    async function loadRoster() {
+       const el = document.getElementById('rosterList');
+       el.innerHTML = '加载中...';
+       try {
+         const list = await DashboardAPI.apiGet('/api/student/classmates');
+         if(Array.isArray(list) && list.length > 0) {
+            el.innerHTML = list.map(s => `<div class="list-item" style="padding:8px; border-bottom:1px solid #2a3b4d;">${s.name} <span style="color:#888; font-size:0.9em;">(${s.studentNo || '无学号'})</span></div>`).join('');
+         } else {
+            el.innerHTML = '<div style="color:#888;">暂无同学信息</div>';
+         }
+       } catch(e) { 
+         if (e && e.status === 403 && e.data && (e.data.error === 'student_not_bound_to_user' || e.data.error === 'not_bound_student')) {
+             el.innerHTML = '<div style="padding:10px; text-align:center; color:#ff6b6b;">未绑定学生档案</div>';
+         } else {
+             el.innerHTML = '<div style="color:#ff6b6b;">加载失败</div>';
+         }
+       }
+    }
+
+    // Grade Logic
+    async function loadGrades() {
+        const examSelect = document.getElementById('gradeExamSelect');
+        // Load exams if empty
+        if (examSelect.options.length <= 1) {
+            try {
+                const exams = await DashboardAPI.apiGet('/api/exams');
+                exams.sort((a,b) => b.id - a.id);
+                exams.forEach(e => {
+                    const opt = document.createElement('option');
+                    opt.value = e.id;
+                    opt.textContent = `${e.name} (${e.semester})`;
+                    examSelect.appendChild(opt);
+                });
+                if (exams.length > 0) examSelect.value = exams[0].id;
+            } catch(e) { console.error('Failed to load exams', e); }
+        }
+
+        const examId = examSelect.value;
+        if (!examId) {
+            document.getElementById('gradeList').textContent = "暂无考试信息";
+            return;
+        }
+
+        try {
+            const data = await DashboardAPI.apiGet(`/api/grades/my?examId=${examId}`);
+            const list = document.getElementById('gradeList');
+            
+            let html = `<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap:10px;">`;
+            
+            data.grades.forEach(g => {
+                let scoreVal = g.score;
+                let color = '#4caf50';
+                if (scoreVal === '-') {
+                    color = '#777';
+                } else {
+                    scoreVal = parseFloat(scoreVal);
+                    if (scoreVal < 60) color = '#f44336';
+                }
+                
+                html += `
+                <div style="background:#2a3b4d; padding:10px; border-radius:4px; text-align:center;">
+                    <div style="font-size:14px; color:#b0bec5;">${g.subject}</div>
+                    <div style="font-size:24px; color:${color}; font-weight:bold;">${g.score}</div>
+                </div>`;
+            });
+            html += `</div>`;
+            list.innerHTML = html;
+            
+        } catch(err) {
+            document.getElementById('gradeList').innerHTML = `<div style="color:salmon;">加载失败: ${err.data?.error || err.message}</div>`;
+        }
+    }
+  </script>
+  <script>
+    // 消息通知逻辑
+    async function loadNotifications() {
+      const listEl = document.getElementById('stuNoticeList');
+      listEl.innerHTML = '<div style="padding:10px;">加载中...</div>';
+      try {
+        const list = await DashboardAPI.apiGet('/api/notifications/my');
+        if (!Array.isArray(list) || list.length === 0) {
+          listEl.innerHTML = '<div style="padding:20px; text-align:center; color:#888;">暂无消息</div>';
+          return;
+        }
+        listEl.innerHTML = list.map(n => {
+           const isRead = n.read;
+           const style = isRead ? 'opacity: 0.6;' : 'border-left: 3px solid #2196F3;';
+           const icon = n.type === 'ASSIGNMENT' ? '📝' : '📢';
+           return `
+             <div class="assignment-item" style="${style}" onclick="onNotificationClick(${n.id}, '${n.type}', ${n.relatedId}, this)">
+               <div style="flex:1;">
+                 <div style="font-weight:bold; font-size:15px; margin-bottom:4px;">
+                    ${icon} ${n.title}
+                    ${!isRead ? '<span style="font-size:10px; background:#f44336; color:#fff; padding:1px 4px; border-radius:4px; margin-left:6px; vertical-align:middle;">NEW</span>' : ''}
+                 </div>
+                 <div style="font-size:13px; color:#ccc; margin-bottom:4px; white-space: pre-wrap;">${n.content}</div>
+                 <div style="font-size:12px; color:#666;">
+                   发送人: ${n.senderUsername || '系统'} &nbsp;|&nbsp; 
+                   时间: ${n.createdAt ? n.createdAt.replace('T', ' ').substring(0,16) : '-'}
+                 </div>
+               </div>
+             </div>
+           `;
+        }).join('');
+      } catch(err) {
+        listEl.innerHTML = '<div style="padding:10px; color:#ff6b6b;">加载失败</div>';
+      }
+    }
+
+    window.onNotificationClick = async function(id, type, relatedId, el) {
+       // Mark as read visually first
+       el.style.opacity = '0.6';
+       el.style.borderLeft = 'none';
+       const newBadge = el.querySelector('span');
+       if(newBadge) newBadge.style.display = 'none';
+
+       // Call API (background)
+       try {
+         await DashboardAPI.apiPost(`/api/notifications/${id}/read`, {});
+       } catch(e) { console.error(e); }
+
+       if ((type === 'ASSIGNMENT' || type === 'ASSIGNMENT_RETURNED') && relatedId) {
+          // Switch to assignment tab
+          const menuItems = Array.from(document.querySelectorAll('.menu-item'));
+          const sections = Array.from(document.querySelectorAll('.section'));
+          
+          sections.forEach(s => s.classList.toggle('active', s.id === 'sec-submit'));
+          menuItems.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#sec-submit'));
+          
+          // Load assignments and then open specific one
+          const listEl = document.getElementById('assignmentList');
+          listEl.innerHTML = '<div style="padding:10px;">加载中...</div>';
+          try {
+            const data = await DashboardAPI.apiGet('/api/student/assignments');
+            allAssignments = data;
+            renderAssignments();
+            // Now open the modal
+            openAssignment(relatedId);
+          } catch(err) {
+            alert('无法加载作业详情');
+          }
+       } else {
+          document.getElementById('modalTitle').textContent = '消息详情';
+          document.getElementById('modalMeta').textContent = '发送人: 系统';
+          document.getElementById('modalBody').textContent = el.querySelector('div[style*="white-space"]').textContent; // hacky way to get content
+          document.getElementById('submissionArea').style.display = 'none';
+          document.getElementById('feedbackArea').style.display = 'none';
+          document.getElementById('assignmentModal').style.display = 'flex';
+          
+          // Restore submission area display for next time
+          const restore = function() {
+             document.getElementById('submissionArea').style.display = 'block';
+             document.getElementById('assignmentModal').style.display = 'none';
+             // remove listener
+             document.querySelector('#assignmentModal .btn[onclick]').removeEventListener('click', restore);
+          };
+       }
+    };
+
+    async function loadAnnouncements() {
+      const listEl = document.getElementById('announcementList');
+      listEl.innerHTML = '<div style="padding:10px;">加载中...</div>';
+      try {
+        const list = await DashboardAPI.apiGet('/api/notices/feed');
+        if (!Array.isArray(list) || list.length === 0) {
+          listEl.innerHTML = '<div style="padding:20px; text-align:center; color:#888;">暂无公告</div>';
+          return;
+        }
+        listEl.innerHTML = list.map(n => {
+           return `
+             <div class="assignment-item" style="cursor:default;">
+               <div style="flex:1;">
+                 <div style="font-weight:bold; font-size:15px; margin-bottom:4px;">
+                    📢 ${n.title}
+                    <span class="status-badge" style="background:rgba(255,255,255,0.1); font-size:10px; margin-left:5px; padding:2px 5px; border-radius:4px;">${n.scope}</span>
+                 </div>
+                 <div style="font-size:13px; color:#ccc; margin-bottom:4px; white-space: pre-wrap;">${n.content}</div>
+                 <div style="font-size:12px; color:#666;">
+                   发布人: ${n.senderName || '管理员'} &nbsp;|&nbsp; 
+                   时间: ${n.createdAt ? n.createdAt.replace('T', ' ').substring(0,16) : '-'}
+                   ${n.allowSignUp ? `<button class="btn" style="width:auto; height:24px; font-size:12px; margin-left:10px; padding:0 10px;" onclick="signUpNotice(${n.id})">报名</button>` : ''}
+                 </div>
+               </div>
+             </div>
+           `;
+        }).join('');
+      } catch(err) {
+        listEl.innerHTML = '<div style="padding:10px; color:#ff6b6b;">加载失败</div>';
+      }
+    }
+    
+    window.signUpNotice = async function(id) {
+        if (!confirm('确定要报名吗？')) return;
+        try {
+            await DashboardAPI.apiPost(`/api/notices/${id}/signup`);
+            alert('报名成功');
+        } catch(err) {
+            alert('报名失败: ' + (err.data?.error || err.message));
+        }
+    };
+  </script>
+  <script>
+    // Communication Logic
+    let currentChatUser = null;
+    let studentContacts = { teachers: [], parent: null };
+
+    async function loadStudentContacts() {
+       const listEl = document.getElementById('contactList');
+       listEl.innerHTML = '<div style="padding:10px;">加载中...</div>';
+       
+       try {
+          const data = await DashboardAPI.apiGet('/api/student/contacts');
+          studentContacts = data; 
+          
+          let html = '';
+          
+          if (Array.isArray(data.teachers) && data.teachers.length > 0) {
+              html += '<div style="padding:10px 10px 5px 10px; font-size:12px; color:#888;">老师</div>';
+              data.teachers.forEach(t => {
+                  html += `
+                   <div class="contact-item" onclick="openChat('${t.username}', '${t.role}', this)">
+                      <div style="font-weight:bold;">${t.role} (${t.subject || ''})</div>
+                      <div style="font-size:12px; color:#888;">${t.username}</div>
+                   </div>
+                 `;
+              });
+          } else {
+             html += '<div style="padding:10px; color:#666;">暂无老师信息</div>';
+          }
+          
+          if (data.parent) {
+             html += '<div style="padding:10px 10px 5px 10px; font-size:12px; color:#888;">家长</div>';
+             html += `
+               <div class="contact-item" onclick="openChat('${data.parent}', '家长', this)">
+                  <div style="font-weight:bold;">家长</div>
+                  <div style="font-size:12px; color:#888;">${data.parent}</div>
+               </div>
+             `;
+          } else {
+             html += '<div style="padding:10px; color:#666;">暂无家长绑定</div>';
+          }
+          
+          listEl.innerHTML = html;
+       } catch(err) {
+          console.error('Contact load error:', err);
+          let errMsg = '加载联系人失败';
+          if (err instanceof Error) {
+             errMsg += ': ' + err.message; // Network errors
+          } else {
+             if (err && err.status) errMsg += ` (Status: ${err.status})`;
+             if (err && err.data) {
+                 if (typeof err.data === 'string') errMsg += ': ' + err.data;
+                 else if (err.data.error) errMsg += ': ' + err.data.error;
+                 else errMsg += ': ' + JSON.stringify(err.data);
+             }
+          }
+          listEl.innerHTML = `<div style="padding:10px; color:#ff6b6b; word-break:break-all;">${errMsg}</div>`;
+       }
+    }
+
+    window.openChat = async function(username, label, el) {
+       // Highlight active
+       if (el) {
+           document.querySelectorAll('.contact-item').forEach(c => c.classList.remove('active'));
+           el.classList.add('active');
+       }
+
+       currentChatUser = username;
+       document.getElementById('msgHeader').textContent = `与 ${label} (${username}) 对话中`;
+       document.getElementById('msgList').innerHTML = '<div style="padding:10px;">加载消息...</div>';
+       
+       await loadChatMessages();
+    };
+    
+    async function loadChatMessages() {
+        if (!currentChatUser) return;
+        const msgList = document.getElementById('msgList');
+        try {
+            const msgs = await DashboardAPI.apiGet(`/api/messages?with=${currentChatUser}`);
+            
+            if (!Array.isArray(msgs) || msgs.length === 0) {
+                msgList.innerHTML = '<div style="padding:20px; text-align:center; color:#888;">暂无消息记录</div>';
+                return;
+            }
+            
+            // Sort by date asc
+            msgs.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+            
+            msgList.innerHTML = msgs.map(m => {
+                const isMe = m.senderUsername !== currentChatUser; 
+                return `
+                   <div style="margin-bottom:10px; text-align: ${isMe ? 'right' : 'left'};">
+                      <div style="display:inline-block; max-width:70%; background: ${isMe ? '#1976D2' : '#2a3b4d'}; padding:8px 12px; border-radius:8px; text-align:left;">
+                         <div style="font-size:14px;">${m.content}</div>
+                         <div style="font-size:10px; color:rgba(255,255,255,0.6); margin-top:4px;">${m.createdAt.replace('T',' ').substring(0,16)}</div>
+                      </div>
+                   </div>
+                `;
+            }).join('');
+            
+            // Scroll to bottom
+            msgList.scrollTop = msgList.scrollHeight;
+            
+        } catch(err) {
+            msgList.innerHTML = '<div style="color:#ff6b6b;">加载消息失败</div>';
+        }
+    }
+
+    window.sendStudentMessage = async function() {
+        if (!currentChatUser) { alert('请先选择联系人'); return; }
+        const input = document.getElementById('msgContent');
+        const content = input.value.trim();
+        if (!content) return;
+        
+        // Disable button temporarily
+        const btn = document.querySelector('#sec-communication button');
+        btn.disabled = true;
+        
+        try {
+            await DashboardAPI.apiPost('/api/messages', {
+                receiver: currentChatUser,
+                content: content
+            });
+            input.value = '';
+            await loadChatMessages();
+        } catch(err) {
+            alert('发送失败: ' + (err.data?.error || '未知错误'));
+        } finally {
+            btn.disabled = false;
+        }
+    };
+  </script>
+</body>
+</html>

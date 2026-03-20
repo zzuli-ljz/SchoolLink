@@ -1,0 +1,1876 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <title>老师主页</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script src="/js/auth.js"></script>
+  <script src="/js/dashboard.js?v=3"></script>
+</head>
+<body>
+  <div class="dashboard-container">
+    <h1 class="title">老师主页</h1>
+    <p>这里将承载班级管理、家校沟通、教学与作业管理、学生反馈与活动模块。</p>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <ul class="menu">
+          <li><a href="#sec-classes" class="menu-item">我的班级</a></li>
+          <li><a href="#sec-students" class="menu-item">学生名册</a></li>
+          <li><a href="#sec-attendance" class="menu-item">考勤管理</a></li>
+          <li><a href="#sec-grades" class="menu-item">成绩管理</a></li>
+          <li><a href="#sec-assign" class="menu-item">发布作业</a></li>
+          <li><a href="#sec-leave" class="menu-item">请假审批</a></li>
+          <li><a href="#sec-notice" class="menu-item">公告管理</a></li>
+          <li><a href="#sec-messages" class="menu-item">我的消息</a></li>
+          <li><a href="#sec-announcements" class="menu-item">学校公告</a></li>
+        </ul>
+      </aside>
+      <main class="main">
+        <section id="sec-classes" class="section card active">
+          <h3>我的班级</h3>
+          <p>创建新班级并自动生成家长/学生注册用邀请码。</p>
+          <form id="classCreateForm" class="form">
+            <div class="form-row">
+              <label>班级名称</label>
+              <input type="text" id="className" placeholder="例如：一年级1班" required />
+            </div>
+            <div class="form-row">
+              <label>年级（选填）</label>
+              <input type="text" id="classGrade" placeholder="例如：一年级" />
+            </div>
+            <button type="submit" class="btn">创建班级</button>
+          </form>
+          <div id="classCreateResult" class="result" style="margin-top:10px;"></div>
+          <div style="margin-top:14px;">
+            <h4>我管理的班级 (班主任)</h4>
+            <table class="table" style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">ID</th>
+                  <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">名称</th>
+                  <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">年级</th>
+                  <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">创建时间</th>
+                </tr>
+              </thead>
+              <tbody id="classesOwnedTbody"></tbody>
+            </table>
+
+            <h4 style="margin-top:20px;">我任教的班级 (任课老师)</h4>
+            <table class="table" style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">ID</th>
+                  <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">名称</th>
+                  <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">年级</th>
+                  <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">负责人</th>
+                </tr>
+              </thead>
+              <tbody id="classesSubjectTbody"></tbody>
+            </table>
+            <!-- 详情、邀请码与名册在新的班级详情页展示 -->
+          </div>
+        </section>
+        <section id="sec-students" class="section card">
+          <h3>学生名册</h3>
+          <p>选择班级以查看名册、管理学生及导出考勤表。</p>
+          <div id="rosterClassList" class="list" style="margin-top:10px;">正在加载班级列表...</div>
+        </section>
+
+        <section id="sec-attendance" class="section card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3>考勤管理</h3>
+            <div style="display:flex; gap:10px;">
+                <button class="btn active" id="btnTabMark" onclick="switchAttTab('mark')">考勤打卡</button>
+                <button class="btn" id="btnTabReport" onclick="switchAttTab('report')">考勤报表</button>
+            </div>
+          </div>
+
+          <!-- Tab 1: Marking -->
+          <div id="attTabMark" style="display:block;">
+              <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                <!-- Left: Calendar & Controls -->
+                <div style="width:300px; flex-shrink:0; background:rgba(0,0,0,0.2); padding:15px; border-radius:4px;">
+                  <div class="form-row">
+                    <label>当前班级</label>
+                    <select id="attClassSelect" style="width:100%; padding:8px; background:#16212e; color:#fff; border:1px solid #2a3b4d;" onchange="onAttClassChange()">
+                      <option value="">请选择班级...</option>
+                    </select>
+                  </div>
+                  
+                  <!-- Custom Calendar Container -->
+                  <div id="attCalendar" style="margin-top:15px; border:1px solid #2a3b4d; padding:10px; text-align:center; background:#16212e;">
+                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <button class="btn" style="padding:2px 8px;" onclick="changeAttMonth(-1)">&lt;</button>
+                        <span id="attCalTitle" style="font-weight:bold;">2023-10</span>
+                        <button class="btn" style="padding:2px 8px;" onclick="changeAttMonth(1)">&gt;</button>
+                     </div>
+                     <div id="attCalGrid" style="display:grid; grid-template-columns:repeat(7, 1fr); gap:5px; font-size:12px;">
+                        <!-- Headers -->
+                        <span style="color:#888;">日</span><span style="color:#888;">一</span><span style="color:#888;">二</span><span style="color:#888;">三</span><span style="color:#888;">四</span><span style="color:#888;">五</span><span style="color:#888;">六</span>
+                        <!-- Days will be injected here -->
+                     </div>
+                  </div>
+                  
+                  <div style="margin-top:15px; text-align:center;">
+                     <div style="font-size:12px; color:#aaa; margin-bottom:5px;">当前选中日期</div>
+                     <span id="attSelectedDateDisplay" style="font-weight:bold; font-size:1.1em; color:#4caf50;">请选择日期</span>
+                     <input type="hidden" id="attDateInput" />
+                  </div>
+                </div>
+                
+                <!-- Right: Student List -->
+                <div style="flex:1; min-width:400px;">
+                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                     <h4>学生名单 <span id="attListDateInfo" style="font-weight:normal; font-size:0.9em; color:#aaa;"></span></h4>
+                     <button id="btnSaveAttendance" class="btn" style="background:#4caf50; display:none;" onclick="saveAttendance()">保存考勤</button>
+                   </div>
+                   <div id="attendanceList" style="background:rgba(0,0,0,0.2); padding:10px; border-radius:4px; min-height:400px; overflow-y:auto;">
+                     <div style="text-align:center; padding:20px; color:#888;">请先在左侧选择班级和日期</div>
+                   </div>
+                </div>
+              </div>
+          </div>
+
+          <!-- Tab 2: Reports -->
+          <div id="attTabReport" style="display:none;">
+              <div style="background:rgba(0,0,0,0.2); padding:15px; border-radius:4px; margin-bottom:15px;">
+                 <div style="display:flex; gap:15px; align-items:flex-end; flex-wrap:wrap;">
+                    <div class="form-row" style="margin:0;">
+                        <label>班级</label>
+                        <select id="attReportClassSelect" style="width:150px; padding:6px; background:#16212e; color:#fff; border:1px solid #2a3b4d;"></select>
+                    </div>
+                    <div class="form-row" style="margin:0;">
+                        <label>开始日期</label>
+                        <input type="date" id="attReportStart" style="padding:5px; background:#16212e; color:#fff; border:1px solid #2a3b4d;" />
+                    </div>
+                    <div class="form-row" style="margin:0;">
+                        <label>结束日期</label>
+                        <input type="date" id="attReportEnd" style="padding:5px; background:#16212e; color:#fff; border:1px solid #2a3b4d;" />
+                    </div>
+                    <div>
+                        <button class="btn" onclick="setAttReportRange('week')">本周</button>
+                        <button class="btn" onclick="setAttReportRange('month')">本月</button>
+                        <button class="btn" onclick="setAttReportRange('term1')">上学期</button>
+                        <button class="btn" onclick="setAttReportRange('term2')">下学期</button>
+                    </div>
+                    <div style="flex:1; text-align:right;">
+                        <button class="btn" style="background:#2196F3;" onclick="loadAttReport()">查询</button>
+                        <button class="btn" style="background:#009688;" onclick="exportAttReport()">导出CSV</button>
+                    </div>
+                 </div>
+              </div>
+              
+              <div id="attReportResult" style="overflow-x:auto;">
+                 <p style="text-align:center; color:#888;">请选择条件并查询</p>
+              </div>
+          </div>
+        </section>
+
+        <!-- Grades Section -->
+        <section id="sec-grades" class="section card">
+          <h3>成绩管理</h3>
+          <p>选择考试和班级进行成绩录入与查看。</p>
+          
+          <div style="display:flex; gap:15px; margin-bottom:20px; align-items:flex-end;">
+            <div class="form-row" style="margin:0;">
+                <label>选择考试</label>
+                <select id="gradeExamSelect" onchange="onGradeFilterChange()"><option value="">加载中...</option></select>
+            </div>
+            <div class="form-row" style="margin:0;">
+                <label>选择班级</label>
+                <select id="gradeClassSelect" onchange="onGradeFilterChange()"><option value="">请选择班级...</option></select>
+            </div>
+          </div>
+
+          <div id="gradeActionArea" style="display:none; border:1px solid #2a3b4d; padding:15px; border-radius:4px; margin-bottom:20px;">
+            <h4 style="margin-top:0;">成绩录入</h4>
+            <div style="display:flex; gap:15px; align-items:flex-end;">
+                <div class="form-row" style="margin:0;">
+                    <label>科目</label>
+                    <select id="gradeSubjectSelect">
+                        <option value="语文">语文</option>
+                        <option value="数学">数学</option>
+                        <option value="英语">英语</option>
+                        <option value="科学">科学</option>
+                        <option value="道法">道法</option>
+                    </select>
+                </div>
+                <button class="btn" style="background:#444;" onclick="downloadGradeTemplate()">下载模板</button>
+                <div style="flex:1;"></div>
+                <input type="file" id="gradeUploadFile" accept=".csv" style="display:none" onchange="uploadGradeFile(this)">
+                <button class="btn" onclick="document.getElementById('gradeUploadFile').click()">上传成绩 (CSV)</button>
+                <button class="btn" style="background: linear-gradient(135deg, #e74c3c, #c0392b); margin-left: 10px;" onclick="clearGrades()">清空成绩</button>
+                <button class="btn" style="background: linear-gradient(135deg, #4caf50, #2e7d32); margin-left: 10px;" onclick="confirmGrades()">发布成绩</button>
+            </div>
+          </div>
+
+          <div id="gradeTableArea">
+             <div style="display:flex; justify-content:space-between; align-items:center;">
+                 <h4>成绩列表</h4>
+                 <button class="btn" style="width:auto; padding:4px 10px;" onclick="exportGradeAnalysis()">导出分析</button>
+             </div>
+             <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>学生ID</th>
+                            <th>姓名</th>
+                            <th>科目</th>
+                            <th>分数</th>
+                            <th>录入人</th>
+                        </tr>
+                    </thead>
+                    <tbody id="gradeTableBody"></tbody>
+                </table>
+             </div>
+          </div>
+        </section>
+
+        <section id="sec-assign" class="section card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3>发布作业</h3>
+              <a href="/home/published_assignments.html" class="btn" style="width:auto;">已发布作业</a>
+          </div>
+          <form id="assignForm" class="form">
+            <div class="form-row">
+              <label>班级ID</label>
+              <input type="number" id="assignClassId" placeholder="例如：1" required />
+            </div>
+            <div class="form-row">
+              <label>标题</label>
+              <input type="text" id="assignTitle" placeholder="例如：第3课作业" required />
+            </div>
+            <div class="form-row">
+              <label>内容</label>
+              <textarea id="assignContent" rows="3" placeholder="作业要求" required></textarea>
+            </div>
+            <div class="form-row">
+              <label>截止日期</label>
+              <input type="date" id="assignDue" required />
+            </div>
+            <button type="submit" class="btn">发布</button>
+          </form>
+          <div id="assignResult" class="result"></div>
+        </section>
+        <section id="sec-leave" class="section card">
+          <h3>请假审批</h3>
+          <div class="form-row">
+            <label>班级ID</label>
+            <input type="number" id="leaveQueryClassId" placeholder="例如：1" />
+            <button id="btnQueryLeave" class="btn" style="margin-left:8px;">查询</button>
+          </div>
+          <div id="leaveList" class="result"></div>
+        </section>
+
+        <section id="sec-notice" class="section card">
+          <h3>消息通知管理</h3>
+          <p>发送通知给班级或个人。</p>
+          <form id="noticeForm" class="form">
+            <div class="form-row">
+              <label>标题</label>
+              <input type="text" id="noticeTitle" placeholder="通知标题" required />
+            </div>
+            <div class="form-row">
+              <label>内容</label>
+              <textarea id="noticeContent" rows="3" placeholder="通知内容" required></textarea>
+            </div>
+            <div class="form-row">
+              <label>范围</label>
+              <select id="noticeScope">
+                <option value="CLASS" selected>班级</option>
+                <option value="INDIVIDUAL">个人</option>
+              </select>
+            </div>
+            <div class="form-row" id="rowClassId">
+              <label>班级ID</label>
+              <input type="number" id="noticeClassId" placeholder="例如：1" />
+            </div>
+            <div class="form-row" id="rowUsername" style="display:none;">
+              <label>接收人用户名</label>
+              <input type="text" id="noticeUsername" placeholder="例如：student" />
+            </div>
+            <button type="submit" class="btn">发送通知</button>
+          </form>
+          
+          <div id="noticeResult" class="result" style="margin-top:10px;"></div>
+
+          <div style="margin-top:20px; border-top:1px solid #2a3b4d; padding-top:10px;">
+             <h4>已发送通知历史</h4>
+             <button id="btnLoadSentNotices" class="btn" style="padding:4px 8px; font-size:12px;">刷新列表</button>
+             <div id="sentNoticesList" style="margin-top:10px;"></div>
+          </div>
+        </section>
+
+        <section id="sec-messages" class="section card">
+          <h3>我的消息</h3>
+          <div style="display:flex; height:400px; gap:10px; border:1px solid #2a3b4d; border-radius:4px;">
+             <div id="msgInbox" style="width:30%; border-right:1px solid #2a3b4d; overflow-y:auto; background:rgba(0,0,0,0.2);">加载中...</div>
+             <div id="msgConversation" style="flex:1; display:flex; flex-direction:column;">
+                <div id="msgList" style="flex:1; overflow-y:auto; padding:10px;">请选择左侧联系人</div>
+                <div style="border-top:1px solid #2a3b4d; padding:10px; background:rgba(0,0,0,0.2);">
+                   <input type="hidden" id="currentChatUser" />
+                   <textarea id="replyContent" rows="2" style="width:100%; margin-bottom:5px; background:#16212e; color:#fff; border:1px solid #2a3b4d; padding:5px;" placeholder="回复内容..."></textarea>
+                   <button class="btn" onclick="sendReply()">发送</button>
+                </div>
+             </div>
+          </div>
+        </section>
+
+        <section id="sec-announcements" class="section card">
+          <h3>学校公告</h3>
+          <p>全校公告信息。</p>
+          <div id="announcementList" class="assignment-list" style="margin-top:10px;">加载中...</div>
+        </section>
+      </main>
+    </div>
+
+    <p><a href="/">返回登录</a></p>
+  </div>
+  <script>
+    // 页面初始化时校验老师角色
+    requireRole('TEACHER');
+    (function(){
+      const menuItems = Array.from(document.querySelectorAll('.menu-item'));
+      const sections = Array.from(document.querySelectorAll('.section'));
+      function show(id){
+        sections.forEach(s => s.classList.toggle('active', s.id === id));
+        menuItems.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+        if (id === 'sec-messages') loadMessages();
+        if (id === 'sec-announcements') loadAnnouncements();
+        if (id === 'sec-leave' && window.loadTeacherLeaves) window.loadTeacherLeaves();
+        if (id === 'sec-attendance') loadAttendanceClasses();
+      }
+      if (sections.length) show(sections[0].id);
+      menuItems.forEach(a => {
+        a.addEventListener('click', function(e){
+          e.preventDefault();
+          const href = a.getAttribute('href') || '';
+          const id = href.startsWith('#') ? href.slice(1) : href;
+          if (id) show(id);
+        });
+      });
+    })();
+    // Grade Logic
+    let allGradeClasses = [];
+    async function loadGradeExams() {
+        try {
+            const list = await DashboardAPI.apiGet('/api/exams');
+            const sel = document.getElementById('gradeExamSelect');
+            sel.innerHTML = '<option value="">请选择考试...</option>' + 
+                list.map(e => `<option value="${e.id}">${e.name} (${e.gradeLevel}年级)</option>`).join('');
+        } catch(e) { console.error(e); }
+    }
+    
+    async function loadGradeClasses() {
+        try {
+            const list = await DashboardAPI.apiGet('/api/classes');
+            allGradeClasses = list;
+            const sel = document.getElementById('gradeClassSelect');
+            sel.innerHTML = '<option value="">请选择班级...</option>' + 
+                list.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        } catch(e) { console.error(e); }
+    }
+
+    function onGradeFilterChange() {
+        const examId = document.getElementById('gradeExamSelect').value;
+        const classId = document.getElementById('gradeClassSelect').value;
+        
+        const actionArea = document.getElementById('gradeActionArea');
+        if (examId && classId) {
+            actionArea.style.display = 'block';
+            loadGrades(examId, classId);
+        } else {
+            actionArea.style.display = 'none';
+            document.getElementById('gradeTableBody').innerHTML = '';
+        }
+    }
+
+    async function loadGrades(examId, classId) {
+        try {
+            // Add cache busting
+            const url = `/api/grades/class/${classId}?examId=${examId}&_t=${new Date().getTime()}`;
+            const list = await DashboardAPI.apiGet(url);
+            
+            const thead = document.querySelector('#gradeTableArea thead');
+            const tbody = document.getElementById('gradeTableBody');
+            
+            if (!list || list.length === 0) {
+                // Reset header if needed, or just show no data
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">暂无数据</td></tr>';
+                return;
+            }
+            
+            // 1. Extract all unique subjects
+            // const subjects = Array.from(new Set(list.map(r => r.subject))).sort();
+            // Order them by a standard order if possible
+            const standardOrder = ['语文', '数学', '英语', '科学', '道法', '物理', '化学', '生物', '历史', '地理'];
+            const foundSubjects = Array.from(new Set(list.map(r => r.subject)));
+            const subjects = foundSubjects.sort((a, b) => {
+                const idxA = standardOrder.indexOf(a);
+                const idxB = standardOrder.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+            
+            // 2. Group by Student
+            const studentMap = {};
+            list.forEach(r => {
+                if (!studentMap[r.studentId]) {
+                    studentMap[r.studentId] = {
+                        studentId: r.studentId,
+                        studentName: r.studentName,
+                        scores: {}
+                    };
+                }
+                studentMap[r.studentId].scores[r.subject] = r.score;
+            });
+            
+            const students = Object.values(studentMap).sort((a, b) => a.studentId - b.studentId);
+            
+            // 3. Render Header
+            let headerHtml = '<tr><th>学生ID</th><th>姓名</th>';
+            subjects.forEach(sub => {
+                headerHtml += `<th>${sub}</th>`;
+            });
+            // headerHtml += '<th>操作</th></tr>'; // Maybe add actions later
+            headerHtml += '</tr>';
+            thead.innerHTML = headerHtml;
+            
+            // 4. Render Body
+            tbody.innerHTML = students.map(s => {
+                let row = `<tr>
+                    <td>${s.studentId}</td>
+                    <td>${s.studentName || '-'}</td>`;
+                
+                subjects.forEach(sub => {
+                    const sc = s.scores[sub];
+                    row += `<td>${sc === undefined || sc === null ? '-' : sc}</td>`;
+                });
+                
+                row += `</tr>`;
+                return row;
+            }).join('');
+            
+        } catch(e) {
+            console.error(e);
+            document.getElementById('gradeTableBody').innerHTML = '<tr><td colspan="5">加载失败</td></tr>';
+        }
+    }
+
+    async function downloadGradeTemplate() {
+        const examId = document.getElementById('gradeExamSelect').value;
+        const classId = document.getElementById('gradeClassSelect').value;
+        const subject = document.getElementById('gradeSubjectSelect').value;
+        if(!examId || !classId) return alert("请先选择考试和班级");
+        
+        const token = DashboardAPI.getToken();
+        const url = `/api/grades/template?examId=${examId}&classId=${classId}&subject=${subject}`;
+        
+        try {
+            const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+            if(!res.ok) throw await res.text();
+            const blob = await res.blob();
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = `template_class${classId}_${subject}.csv`;
+            link.click();
+        } catch(e) {
+            alert("下载失败: " + e);
+        }
+    }
+
+    async function uploadGradeFile(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const examId = document.getElementById('gradeExamSelect').value;
+        const classId = document.getElementById('gradeClassSelect').value;
+        const subject = document.getElementById('gradeSubjectSelect').value;
+        
+        const fd = new FormData();
+        fd.append('file', file);
+        
+        try {
+            const token = DashboardAPI.getToken();
+            const res = await fetch(`/api/grades/upload?examId=${examId}&classId=${classId}&subject=${subject}`, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token },
+                body: fd
+            });
+            if(!res.ok) throw await res.text();
+            alert("上传成功");
+            loadGrades(examId, classId);
+        } catch(e) {
+            alert("上传失败: " + e);
+        }
+        input.value = ''; // Reset
+    }
+
+    async function exportGradeAnalysis() {
+        const examId = document.getElementById('gradeExamSelect').value;
+        const classId = document.getElementById('gradeClassSelect').value;
+        if (!examId || !classId) {
+            alert("请先选择考试和班级");
+            return;
+        }
+        const token = DashboardAPI.getToken();
+        try {
+            const res = await fetch(`/api/grades/export/teacher?examId=${examId}&classId=${classId}`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if(!res.ok) throw await res.text();
+            const blob = await res.blob();
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            // Get filename from header if possible, else default
+            const disposition = res.headers.get('Content-Disposition');
+            let filename = `analysis_class${classId}.csv`;
+            if (disposition && disposition.indexOf('filename=') !== -1) {
+                const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                if (matches != null && matches[1]) { 
+                    filename = matches[1].replace(/['"]/g, '');
+                }
+            }
+            link.download = filename;
+            link.click();
+        } catch(e) {
+            alert("导出失败: " + e);
+        }
+    }
+
+    async function clearGrades() {
+        const examId = document.getElementById('gradeExamSelect').value;
+        const classId = document.getElementById('gradeClassSelect').value;
+        const subject = document.getElementById('gradeSubjectSelect').value;
+        
+        if (!examId || !classId) {
+            alert("请先选择考试和班级");
+            return;
+        }
+        
+        if (!confirm(`确定要清空 ${subject} 的成绩吗？此操作不可撤销。`)) {
+            return;
+        }
+        
+        try {
+            const token = DashboardAPI.getToken();
+            const res = await fetch(`/api/grades/clear?examId=${examId}&classId=${classId}&subject=${subject}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!res.ok) throw await res.text();
+            alert("成绩已清空");
+            loadGrades(examId, classId);
+        } catch(e) {
+            alert("清空失败: " + e);
+        }
+    }
+
+    async function confirmGrades() {
+        const examId = document.getElementById('gradeExamSelect').value;
+        const classId = document.getElementById('gradeClassSelect').value;
+        const subject = document.getElementById('gradeSubjectSelect').value;
+        
+        if (!examId || !classId) {
+            alert("请先选择考试和班级");
+            return;
+        }
+        
+        if (!confirm(`确定要发布 ${subject} 的成绩吗？发布后家长和学生将可以查看成绩，且会收到通知。`)) {
+            return;
+        }
+        
+        try {
+            const token = DashboardAPI.getToken();
+            const res = await fetch('/api/grades/confirm', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ examId, classId, subject })
+            });
+            
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || '发布失败');
+            }
+            
+            const data = await res.json();
+            alert(`发布成功！已通知 ${data.count} 名相关人员。`);
+            loadGrades(examId, classId);
+        } catch(e) {
+            alert("发布失败: " + e.message);
+        }
+    }
+  </script>
+  <script>
+    // 创建班级
+    const classCreateForm = document.getElementById('classCreateForm');
+    const classCreateResult = document.getElementById('classCreateResult');
+    const classesOwnedTbody = document.getElementById('classesOwnedTbody');
+    const classesSubjectTbody = document.getElementById('classesSubjectTbody');
+    let selectedClassId = null;
+    
+    function getUsernameFromToken() {
+        const token = localStorage.getItem('token');
+        if(!token) return null;
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            return JSON.parse(jsonPayload).sub;
+        } catch (e) { return null; }
+    }
+
+    function roleLabel(r){ return r === 'PARENT' ? '家长' : (r === 'STUDENT' ? '学生' : r); }
+    
+    async function loadClasses(){
+      try {
+        const list = await DashboardAPI.apiGet('/api/classes');
+        const username = getUsernameFromToken();
+
+        if (!Array.isArray(list) || list.length === 0) {
+          if(classesOwnedTbody) classesOwnedTbody.innerHTML = '<tr><td colspan="4" style="padding:8px;">暂无班级</td></tr>';
+          if(classesSubjectTbody) classesSubjectTbody.innerHTML = '<tr><td colspan="4" style="padding:8px;">暂无班级</td></tr>';
+          return;
+        }
+        
+        const owned = list.filter(c => c.ownerUsername === username);
+        const subject = list.filter(c => c.ownerUsername !== username);
+        
+        if(classesOwnedTbody) {
+            if(owned.length === 0) classesOwnedTbody.innerHTML = '<tr><td colspan="4" style="padding:8px;">暂无管理的班级</td></tr>';
+            else {
+                classesOwnedTbody.innerHTML = owned.map(c => (
+                  `<tr class="table-row" data-id="${c.id}" data-name="${c.name}" style="cursor:pointer;">
+                     <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${c.id}</td>
+                     <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${c.name}</td>
+                     <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${c.grade || ''}</td>
+                     <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${c.createdAt || ''}</td>
+                   </tr>`
+                )).join('');
+            }
+        }
+        
+        if(classesSubjectTbody) {
+            if(subject.length === 0) classesSubjectTbody.innerHTML = '<tr><td colspan="4" style="padding:8px;">暂无任教班级</td></tr>';
+            else {
+                classesSubjectTbody.innerHTML = subject.map(c => (
+                  `<tr class="table-row" data-id="${c.id}" data-name="${c.name}" style="cursor:pointer;">
+                     <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${c.id}</td>
+                     <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${c.name}</td>
+                     <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${c.grade || ''}</td>
+                     <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${c.ownerUsername || ''}</td>
+                   </tr>`
+                )).join('');
+            }
+        }
+      } catch(err){
+        if(classesOwnedTbody) classesOwnedTbody.innerHTML = '<tr><td colspan="4" style="padding:8px; color:#f55;">加载失败</td></tr>';
+      }
+    }
+    function setSelectedClass(id, name){
+      // 点击班级跳转到详情页
+      window.location.href = `/home/class.html?classId=${id}`;
+    }
+    async function loadRoster(classId){
+      rosterList.textContent = '正在加载名册...';
+      try {
+        const data = await DashboardAPI.apiGet(`/api/classes/${classId}/students`);
+        if (!Array.isArray(data) || data.length === 0) {
+          rosterList.textContent = '暂无学生记录';
+        } else {
+          rosterList.innerHTML = data.map(s => `<div class="list-item">#${s.id} ${s.name}${s.studentNo ? ' — ' + s.studentNo : ''}</div>`).join('');
+        }
+      } catch(err){
+        if (err && err.status === 404) {
+          rosterList.textContent = '名册加载失败：班级不存在';
+        } else if (err && err.status === 401) {
+          rosterList.textContent = '名册加载失败：登录状态无效';
+        } else if (err && err.status === 403) {
+          rosterList.textContent = '名册加载失败：无权限';
+        } else {
+          rosterList.textContent = '名册加载失败';
+        }
+      }
+    }
+
+    async function onEditClass(id){
+      const name = prompt('输入新的班级名称');
+      if (name === null) return;
+      const grade = prompt('输入新的年级（可留空）') || '';
+      try {
+        const saved = await DashboardAPI.apiPut(`/api/classes/${id}`, { id, name: name.trim(), grade: grade.trim() });
+        await loadClasses();
+        setSelectedClass(saved.id, saved.name);
+      } catch(err){
+        alert('修改失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误'));
+      }
+    }
+
+    async function onDeleteClass(id){
+      if (!confirm('确定删除该班级？该操作不可撤销。')) return;
+      try {
+        await DashboardAPI.apiDelete(`/api/classes/${id}`);
+        await loadClasses();
+        if (selectedClassId === id) { selectedClassInfo.textContent = ''; inviteList.textContent=''; rosterList.textContent=''; }
+      } catch(err){
+        if (err && err.status === 403) {
+          alert('删除失败：无权限（仅负责人或管理员可删除）');
+        } else if (err && err.status === 404) {
+          alert('删除失败：班级不存在');
+        } else {
+          alert('删除失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误'));
+        }
+      }
+    }
+
+    async function onTransferClass(id){
+      const toUsername = prompt('输入目标老师用户名');
+      if (!toUsername) return;
+      try {
+        const resp = await DashboardAPI.apiPost(`/api/classes/${id}/transfer`, { toUsername });
+        alert('转让成功，新的负责人：' + resp.ownerUsername);
+      } catch(err){
+        alert('转让失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误'));
+      }
+    }
+
+    async function loadRosterClasses(){
+      const rosterClassList = document.getElementById('rosterClassList');
+      if (!rosterClassList) return;
+      try {
+        const list = await DashboardAPI.apiGet('/api/classes');
+        if (!Array.isArray(list) || list.length === 0) {
+          rosterClassList.innerHTML = '<div style="padding:8px;">暂无班级</div>';
+          return;
+        }
+        rosterClassList.innerHTML = list.map(c => (
+          `<div class="list-item" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;" onclick="location.href='/home/class.html?classId=${c.id}'">
+             <span>${c.name} <span style="color:#888; font-size:0.9em;">(${c.grade || '无年级'})</span></span>
+             <span style="color:#2196F3;">查看名册 &gt;</span>
+           </div>`
+        )).join('');
+      } catch(err){
+        rosterClassList.textContent = '加载失败';
+      }
+    }
+
+    if (classesOwnedTbody) {
+      classesOwnedTbody.addEventListener('click', function(e){
+        let tr = e.target?.closest('tr.table-row');
+        if (tr && tr.dataset && tr.dataset.id) {
+          setSelectedClass(Number(tr.dataset.id), tr.dataset.name || '');
+        }
+      });
+    }
+    if (classesSubjectTbody) {
+      classesSubjectTbody.addEventListener('click', function(e){
+        let tr = e.target?.closest('tr.table-row');
+        if (tr && tr.dataset && tr.dataset.id) {
+          setSelectedClass(Number(tr.dataset.id), tr.dataset.name || '');
+        }
+      });
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      loadClasses();
+      loadRosterClasses();
+      loadGradeExams();
+      loadGradeClasses();
+      // Auto-load lists
+      if (document.getElementById('btnLoadAssignments')) document.getElementById('btnLoadAssignments').click();
+      if (document.getElementById('btnLoadSentNotices')) document.getElementById('btnLoadSentNotices').click();
+    });
+    if (classCreateForm) {
+      classCreateForm.addEventListener('submit', async function(e){
+        e.preventDefault();
+        const name = document.getElementById('className').value.trim();
+        const grade = document.getElementById('classGrade').value.trim();
+        classCreateResult.textContent = '正在创建班级...';
+        try {
+          const created = await DashboardAPI.apiPost('/api/classes', { name, grade });
+          classCreateResult.innerHTML = '<span style="color:#4caf50;">班级创建成功</span>';
+          document.getElementById('className').value = '';
+          document.getElementById('classGrade').value = '';
+          loadClasses();
+        } catch(err){
+          classCreateResult.innerHTML = `<span style="color:#f55;">创建失败: ${err.data?.error || err.message}</span>`;
+        }
+      });
+    }
+
+    // 发布作业
+    const assignForm = document.getElementById('assignForm');
+    if (assignForm) {
+      assignForm.addEventListener('submit', async function(e){
+        e.preventDefault();
+        const classId = Number(document.getElementById('assignClassId').value);
+        const title = document.getElementById('assignTitle').value.trim();
+        const content = document.getElementById('assignContent').value.trim();
+        const dueDate = document.getElementById('assignDue').value;
+        const resultEl = document.getElementById('assignResult');
+        resultEl.textContent = '正在发布...';
+        try {
+          const data = await DashboardAPI.apiPost(`/api/classes/${classId}/assignments`, { title, content, dueDate });
+          resultEl.textContent = '发布成功，作业ID：' + data.id;
+          assignForm.reset();
+        } catch(err){
+          resultEl.textContent = '发布失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误');
+        }
+      });
+    }
+
+    // 查询与审批请假
+    const leaveList = document.getElementById('leaveList');
+    const btnQueryLeave = document.getElementById('btnQueryLeave');
+    
+    // 考勤管理
+    const attClassSelect = document.getElementById('attClassSelect');
+    const attDateInput = document.getElementById('attDateInput');
+    const btnLoadAttendance = document.getElementById('btnLoadAttendance');
+    const attendanceList = document.getElementById('attendanceList');
+    const btnSaveAttendance = document.getElementById('btnSaveAttendance');
+    
+    // Set default date to today
+    if(attDateInput) attDateInput.valueAsDate = new Date();
+
+    async function loadAttendanceClasses() {
+        if (!attClassSelect) return;
+        try {
+            const list = await DashboardAPI.apiGet('/api/classes');
+            const username = getUsernameFromToken();
+            
+            const owned = list.filter(c => c.ownerUsername === username);
+            const teaching = list.filter(c => c.ownerUsername !== username);
+            
+            let html = '<option value="">请选择班级...</option>';
+            if (owned.length > 0) {
+                html += `<optgroup label="我管理的班级">${owned.map(c => `<option value="${c.id}" data-role="head">${c.name}</option>`).join('')}</optgroup>`;
+            }
+            if (teaching.length > 0) {
+                html += `<optgroup label="我任教的班级">${teaching.map(c => `<option value="${c.id}" data-role="subject">${c.name}</option>`).join('')}</optgroup>`;
+            }
+            
+            if (owned.length === 0 && teaching.length === 0) {
+                html = '<option value="">暂无关联班级</option>';
+            }
+            
+            attClassSelect.innerHTML = html;
+        } catch(e) {
+            attClassSelect.innerHTML = '<option value="">加载失败</option>';
+        }
+    }
+    
+    if(btnLoadAttendance) {
+        btnLoadAttendance.addEventListener('click', loadAttendanceData);
+    }
+    
+    if(btnSaveAttendance) {
+        btnSaveAttendance.addEventListener('click', saveAttendance);
+    }
+
+    async function loadAttendanceData() {
+        const classId = attClassSelect.value;
+        const date = attDateInput.value;
+        if(!classId || !date) { alert('请选择班级和日期'); return; }
+        
+        const selectedOption = attClassSelect.options[attClassSelect.selectedIndex];
+        const isHead = selectedOption.getAttribute('data-role') === 'head';
+
+        attendanceList.innerHTML = '加载中...';
+        btnSaveAttendance.style.display = 'none';
+        
+        try {
+            const data = await DashboardAPI.apiGet(`/api/attendance/class/${classId}?date=${date}`);
+            renderAttendanceList(data, !isHead);
+            
+            if (isHead) {
+                btnSaveAttendance.style.display = 'block';
+                btnSaveAttendance.disabled = false;
+                btnSaveAttendance.textContent = '保存考勤';
+            } else {
+                btnSaveAttendance.style.display = 'block';
+                btnSaveAttendance.disabled = true;
+                btnSaveAttendance.textContent = '仅查看 (非班主任)';
+            }
+        } catch(err) {
+            attendanceList.innerHTML = `<span style="color:#f55;">加载失败: ${err.data?.error || err.message}</span>`;
+        }
+    }
+    
+    function renderAttendanceList(items, readOnly) {
+        if(!items || items.length === 0) {
+            attendanceList.innerHTML = '该班级暂无学生。';
+            return;
+        }
+        
+        const disabledAttr = readOnly ? 'disabled' : '';
+        const readonlyAttr = readOnly ? 'readonly' : '';
+
+        let html = '<table class="table" style="width:100%;"><thead><tr><th>姓名</th><th>状态</th><th>备注</th></tr></thead><tbody>';
+        
+        html += items.map(item => {
+            const status = item.status || 'PRESENT';
+            const name = `status_${item.studentId}`;
+            return `
+            <tr class="att-row" data-student-id="${item.studentId}">
+                <td>${item.studentName}</td>
+                <td>
+                    <label style="margin-right:8px;"><input type="radio" name="${name}" value="PRESENT" ${status==='PRESENT'?'checked':''} ${disabledAttr}> 出勤</label>
+                    <label style="margin-right:8px;"><input type="radio" name="${name}" value="SICK" ${status==='SICK'?'checked':''} ${disabledAttr}> 病假</label>
+                    <label style="margin-right:8px;"><input type="radio" name="${name}" value="PERSONAL" ${status==='PERSONAL'?'checked':''} ${disabledAttr}> 事假</label>
+                    <label style="margin-right:8px;"><input type="radio" name="${name}" value="LATE" ${status==='LATE'?'checked':''} ${disabledAttr}> 迟到</label>
+                    <label><input type="radio" name="${name}" value="ABSENT" ${status==='ABSENT'?'checked':''} ${disabledAttr}> 缺勤</label>
+                </td>
+                <td>
+                    <input type="text" class="att-remark" value="${item.remarks||''}" placeholder="备注" style="width:100%; background:transparent; border:1px solid #444; color:#fff; padding:4px;" ${readonlyAttr}>
+                </td>
+            </tr>
+            `;
+        }).join('');
+        
+        html += '</tbody></table>';
+        attendanceList.innerHTML = html;
+    }
+    
+    async function saveAttendance() {
+        const classId = attClassSelect.value;
+        const date = attDateInput.value;
+        if(!classId || !date) return;
+        
+        const rows = document.querySelectorAll('.att-row');
+        const items = [];
+        
+        rows.forEach(row => {
+            const studentId = Number(row.dataset.studentId);
+            const statusInput = row.querySelector(`input[name="status_${studentId}"]:checked`);
+            const status = statusInput ? statusInput.value : 'PRESENT';
+            const remarks = row.querySelector('.att-remark').value;
+            
+            items.push({ studentId, status, remarks });
+        });
+        
+        try {
+            await DashboardAPI.apiPost('/api/attendance/batch', {
+                classId: Number(classId),
+                date: date,
+                items: items
+            });
+            alert('保存成功');
+        } catch(err) {
+            alert('保存失败: ' + err.message);
+        }
+    }
+
+    window.exportAttendanceReport = function(type) {
+        const classId = attClassSelect.value;
+        const date = attDateInput.value;
+        if(!classId) { alert('请先选择班级'); return; }
+        alert(`导出 ${type} 报表功能开发中... \n班级ID: ${classId}, 基准日期: ${date}`);
+    };
+
+    async function loadTeacherLeaves() {
+        if (!leaveList) return;
+        
+        const classIdInput = document.getElementById('leaveQueryClassId');
+        const classId = classIdInput && classIdInput.value ? classIdInput.value.trim() : '';
+
+        leaveList.innerHTML = '<div style="padding:10px;">加载中...</div>';
+        try {
+            let url = '/api/teacher/leaves';
+            if (classId) {
+                url = `/api/classes/${classId}/leave`;
+            }
+            // Add cache busting
+            url += (url.includes('?') ? '&' : '?') + '_t=' + new Date().getTime();
+            
+            const list = await DashboardAPI.apiGet(url);
+            if (!Array.isArray(list) || list.length === 0) {
+                leaveList.innerHTML = '<div style="padding:10px; color:#888;">暂无待处理的请假申请</div>';
+                return;
+            }
+            // 渲染列表
+            leaveList.innerHTML = list.map(item => {
+            const isPending = item.status === 'PENDING';
+            const statusColor = isPending ? '#ff9800' : (item.status === 'APPROVED' ? '#4caf50' : '#f44336');
+            const statusText = isPending ? '待审批' : (item.status === 'APPROVED' ? '已批准' : '已拒绝');
+            
+            // Escape for HTML attribute (only double quotes matter for data-reason="...")
+            const safeReason = (item.reason || '').replace(/"/g, '&quot;');
+            
+            return `
+                <div class="list-item" style="border-left: 4px solid ${statusColor}; padding-left:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <span style="font-weight:bold;">申请ID: #${item.id}</span>
+                            <span style="font-size:0.9em; color:#ccc; margin-left:8px;">
+                                学生ID: ${item.studentId}
+                            </span>
+                             <div style="margin-top:4px; font-size:0.9em;">
+                                时间: ${item.dateFrom} 至 ${item.dateTo}
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="color:${statusColor}; font-weight:bold; margin-bottom:4px;">${statusText}</div>
+                            <button class="btn btn-view-leave" 
+                                data-id="${item.id}"
+                                data-status="${item.status}"
+                                data-reason="${safeReason}"
+                                data-student-id="${item.studentId}"
+                                data-date-from="${item.dateFrom}"
+                                data-date-to="${item.dateTo}"
+                                style="width:auto; display:inline-block; padding:4px 10px; font-size:12px; height:auto; background:#2196F3;">
+                                查看
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch(err) {
+            leaveList.innerHTML = '<div style="color:#f55; padding:10px;">加载失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误') + '</div>';
+        }
+    }
+
+    if (btnQueryLeave) {
+        btnQueryLeave.addEventListener('click', loadTeacherLeaves);
+    }
+    
+    // Auto load when section is shown or on page load if active
+    // We can hook into the 'show' function or just expose a global refresher
+    // For simplicity, we add it to the tab click handler logic by observing mutations or modifying the show function
+    // But since we are modifying the HTML, we can just call it in DOMContentLoaded if the section is active, 
+    // or rely on the user clicking refresh for now, OR better:
+    // We can modify the existing show() function in the big script block if we want, 
+    // but simply calling it once on load (if active) and on click is a good start.
+    
+    // Expose to global scope so the tab switcher can call it
+    window.loadTeacherLeaves = loadTeacherLeaves;
+
+    // Leave List Event Delegation
+    // Note: We now use global delegation in dashboard.js for the 'View' button.
+    // The previous inline handlers and local delegation are removed to prevent conflicts.
+    
+    // 消息发送：范围联动
+    const noticeScope = document.getElementById('noticeScope');
+    const rowClassId = document.getElementById('rowClassId');
+    const rowUsername = document.getElementById('rowUsername');
+    
+    if (noticeScope) {
+      noticeScope.addEventListener('change', function(){
+        const v = noticeScope.value;
+        if (v === 'CLASS') {
+            rowClassId.style.display = 'block';
+            rowUsername.style.display = 'none';
+        } else {
+            rowClassId.style.display = 'none';
+            rowUsername.style.display = 'block';
+        }
+      });
+    }
+
+    // 发送消息
+    const noticeForm = document.getElementById('noticeForm');
+    const noticeResult = document.getElementById('noticeResult');
+    if (noticeForm) {
+      noticeForm.addEventListener('submit', async function(e){
+        e.preventDefault();
+        const title = document.getElementById('noticeTitle').value.trim();
+        const content = document.getElementById('noticeContent').value.trim();
+        const scope = document.getElementById('noticeScope').value;
+        
+        let payload = { title, content };
+        if (scope === 'CLASS') {
+             const cid = document.getElementById('noticeClassId').value;
+             if(!cid) { alert('请输入班级ID'); return; }
+             payload.classId = Number(cid);
+        } else {
+             const uname = document.getElementById('noticeUsername').value.trim();
+             if(!uname) { alert('请输入用户名'); return; }
+             payload.receiverUsername = uname;
+        }
+
+        noticeResult.textContent = '正在发送...';
+        try {
+          const data = await DashboardAPI.apiPost('/api/notifications/send', payload);
+          noticeResult.textContent = `发送成功，发送数：${data.sent_count}`;
+          noticeForm.reset();
+          // Reset visibility
+          document.getElementById('noticeScope').value = 'CLASS';
+          rowClassId.style.display = 'block';
+          rowUsername.style.display = 'none';
+        } catch(err){
+          noticeResult.textContent = '发送失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误');
+        }
+      });
+    }
+
+    // Load Sent Notices
+    const btnLoadSentNotices = document.getElementById('btnLoadSentNotices');
+    const sentNoticesList = document.getElementById('sentNoticesList');
+    if (btnLoadSentNotices) {
+      btnLoadSentNotices.addEventListener('click', async () => {
+        sentNoticesList.innerHTML = '加载中...';
+        try {
+          const list = await DashboardAPI.apiGet('/api/notifications/sent');
+          if (!Array.isArray(list) || list.length === 0) {
+            sentNoticesList.innerHTML = '<div style="color:#888;">暂无发送记录</div>';
+            return;
+          }
+          sentNoticesList.innerHTML = list.map(n => `
+            <div class="list-item">
+              <div><strong>${n.title}</strong> <span style="font-size:0.8em; color:#888;">${n.createdAt ? n.createdAt.replace('T', ' ').substring(0,16) : ''}</span></div>
+              <div>接收: ${n.receiverUsername || 'Unknown'} | 类型: ${n.type}</div>
+              <div style="color:#ccc;">${n.content}</div>
+            </div>
+          `).join('');
+        } catch(err) {
+          console.error(err);
+          sentNoticesList.innerHTML = '<div style="color:#f55;">加载失败: ' + (err.status || 'Unknown') + '</div>';
+        }
+      });
+    }
+
+    // Load Published Assignments
+    const btnLoadAssignments = document.getElementById('btnLoadAssignments');
+    const publishedAssignmentsList = document.getElementById('publishedAssignmentsList');
+    if (btnLoadAssignments) {
+      btnLoadAssignments.addEventListener('click', async () => {
+        publishedAssignmentsList.innerHTML = '加载中...';
+        try {
+          const list = await DashboardAPI.apiGet('/api/assignments/published');
+          if (!Array.isArray(list) || list.length === 0) {
+            publishedAssignmentsList.innerHTML = '<div style="color:#888;">暂无发布记录</div>';
+            return;
+          }
+          publishedAssignmentsList.innerHTML = list.map(a => `
+            <div class="list-item" style="cursor:pointer;" onclick="openAssignmentManager(${a.id}, '${a.title}')">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                      <strong>${a.title}</strong> (ID: ${a.id})
+                      <span style="font-size:0.8em; color:#aaa; margin-left:10px;">发布人: ${a.teacher ? a.teacher.username : '未知'}</span>
+                  </div>
+                  <div style="display:flex; gap:10px;">
+                      <button class="btn" style="width:auto; height:auto; padding:4px 8px; font-size:12px;">管理 &gt;</button>
+                      <button class="btn" style="width:auto; height:auto; padding:4px 8px; font-size:12px; background:#f44336;" onclick="event.stopPropagation(); deleteAssignment(${a.id})">删除</button>
+                  </div>
+              </div>
+              <div>截止: ${a.dueDate || '-'} | 班级ID: ${a.classId}</div>
+              <div style="color:#ccc;">${a.content}</div>
+            </div>
+          `).join('');
+        } catch(err) {
+          console.error(err);
+          publishedAssignmentsList.innerHTML = '<div style="color:#f55;">加载失败: ' + (err.status || 'Unknown') + '</div>';
+        }
+      });
+    }
+
+    window.deleteAssignment = async function(id) {
+        if(!confirm('确定要删除该作业吗？\n删除后，学生端、家长端将同步不可见，且所有已提交的作业记录也会被清除。')) return;
+        try {
+            await DashboardAPI.apiDelete('/api/assignments/' + id);
+            alert('删除成功');
+            if (typeof window.loadPublishedAssignments === 'function') {
+                window.loadPublishedAssignments();
+            }
+        } catch(err) {
+            alert('删除失败: ' + (err.data?.error || err.message || '未知错误'));
+        }
+    };
+
+    async function loadMessages() {
+        const inbox = document.getElementById('msgInbox');
+        inbox.innerHTML = '<div style="padding:10px;">加载中...</div>';
+        try {
+            // Get all received messages
+            const msgs = await DashboardAPI.apiGet('/api/messages');
+            if (!Array.isArray(msgs) || msgs.length === 0) {
+                inbox.innerHTML = '<div style="padding:10px; color:#888;">暂无消息</div>';
+                return;
+            }
+            // Group by sender (distinct senders)
+            const senders = {};
+            msgs.forEach(m => {
+                if (!senders[m.senderUsername]) senders[m.senderUsername] = [];
+                senders[m.senderUsername].push(m);
+            });
+            
+            inbox.innerHTML = Object.keys(senders).map(u => `
+                <div class="list-item" style="cursor:pointer; padding:10px; border-bottom:1px solid #2a3b4d;" onclick="selectChat('${u}')">
+                    <div style="font-weight:bold;">${u}</div>
+                    <div style="font-size:12px; color:#888;">${senders[u][0].content.substring(0, 20)}...</div>
+                    <div style="font-size:10px; color:#666;">${new Date(senders[u][0].createdAt).toLocaleString()}</div>
+                </div>
+            `).join('');
+        } catch(err) {
+            inbox.innerHTML = '<div style="padding:10px;">加载失败</div>';
+        }
+    }
+    
+    window.selectChat = async function(username) {
+        document.getElementById('currentChatUser').value = username;
+        const list = document.getElementById('msgList');
+        list.innerHTML = '加载中...';
+        try {
+            const msgs = await DashboardAPI.apiGet(`/api/messages?with=${username}`);
+            list.innerHTML = msgs.map(m => `
+                <div style="text-align: ${m.senderUsername === username ? 'left' : 'right'}; margin-bottom:10px;">
+                    <div style="font-size:12px; color:#78909c;">${m.senderUsername === username ? username : '我'} - ${new Date(m.createdAt).toLocaleString()}</div>
+                    <div style="background: ${m.senderUsername === username ? 'rgba(255,255,255,0.1)' : '#006064'}; display:inline-block; padding:8px; border-radius:8px; margin-top:5px; max-width:80%; text-align:left; word-wrap:break-word;">${m.content}</div>
+                </div>
+            `).join('');
+            list.scrollTop = list.scrollHeight;
+        } catch(err) {
+            list.innerHTML = '加载失败';
+        }
+    };
+    
+    window.sendReply = async function() {
+        const receiver = document.getElementById('currentChatUser').value;
+        const content = document.getElementById('replyContent').value;
+        if (!receiver) { alert('请选择联系人'); return; }
+        if (!content) { alert('请输入内容'); return; }
+        
+        try {
+            await DashboardAPI.apiPost('/api/messages', { receiver, content });
+            document.getElementById('replyContent').value = '';
+            selectChat(receiver); // Reload
+        } catch(err) {
+            alert('发送失败: ' + (err.data?.error || err.message));
+        }
+    };
+    
+    async function loadAnnouncements() {
+       const listEl = document.getElementById('announcementList');
+       listEl.innerHTML = '<div style="padding:10px;">加载中...</div>';
+       try {
+         const list = await DashboardAPI.apiGet('/api/notices/feed');
+         if (!Array.isArray(list) || list.length === 0) {
+           listEl.innerHTML = '<div style="padding:20px; text-align:center; color:#888;">暂无公告</div>';
+           return;
+         }
+         listEl.innerHTML = list.map(n => `
+             <div class="assignment-item" style="cursor:default;">
+               <div style="flex:1;">
+                 <div style="font-weight:bold; font-size:15px; margin-bottom:4px;">
+                    📢 ${n.title}
+                    <span class="status-badge" style="background:rgba(255,255,255,0.1); font-size:10px; margin-left:5px; padding:2px 5px; border-radius:4px;">${n.scope}</span>
+                 </div>
+                 <div style="font-size:13px; color:#ccc; margin-bottom:4px; white-space: pre-wrap;">${n.content}</div>
+                 <div style="font-size:12px; color:#666;">
+                   发布人: ${n.senderName || '管理员'} &nbsp;|&nbsp; 
+                   时间: ${n.createdAt ? n.createdAt.replace('T', ' ').substring(0,16) : '-'}
+                 </div>
+               </div>
+             </div>
+         `).join('');
+       } catch(err) {
+         listEl.innerHTML = '<div style="padding:10px; color:#ff6b6b;">加载失败</div>';
+       }
+    }
+  </script>
+
+  <!-- Assignment Management Modal -->
+  <div id="assignmentModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; overflow-y:auto;">
+    <div style="background:#1e2a38; width:90%; max-width:800px; margin:50px auto; padding:20px; border-radius:8px; border:1px solid #2a3b4d;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 id="modalTitle" style="margin:0;">作业管理</h2>
+            <button onclick="document.getElementById('assignmentModal').style.display='none'" class="btn" style="background:#f44336; width:auto;">关闭</button>
+        </div>
+        
+        <div id="modalStats" style="margin-bottom:20px; padding:15px; background:rgba(0,0,0,0.2); border-radius:4px;">
+            <!-- Stats Bars -->
+            加载中...
+        </div>
+
+        <div style="border-bottom:1px solid #2a3b4d; padding-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; gap:10px;">
+                <button id="tabSubmitted" class="btn" style="background:#2196F3; width:auto; padding:5px 15px;" onclick="switchManagerTab('submitted')">已提交</button>
+                <button id="tabUnsubmitted" class="btn" style="background:#37474f; width:auto; padding:5px 15px;" onclick="switchManagerTab('unsubmitted')">未提交</button>
+            </div>
+            <button class="btn" onclick="refreshManager()" style="font-size:12px; padding:2px 8px; width:auto;">刷新</button>
+        </div>
+        <div id="modalSubmissions" style="max-height:500px; overflow-y:auto; margin-top:10px;">
+            <!-- Submission Items -->
+        </div>
+    </div>
+  </div>
+
+  <!-- Submission Detail Modal -->
+  <div id="submissionDetailModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1100; overflow-y:auto;">
+    <div style="background:#1e2a38; width:90%; max-width:600px; margin:80px auto; padding:20px; border-radius:8px; border:1px solid #2a3b4d;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 id="subDetailTitle" style="margin:0;">作业详情</h2>
+            <button onclick="document.getElementById('submissionDetailModal').style.display='none'" class="btn" style="background:#f44336; width:auto; height:auto; padding:8px 16px;">关闭</button>
+        </div>
+        
+        <div id="subDetailContent" style="background:rgba(0,0,0,0.2); padding:15px; border-radius:4px; min-height:100px; white-space:pre-wrap; color:#e3f2fd; margin-bottom:20px;"></div>
+        
+        <div id="subDetailActions" style="text-align:right; border-top:1px solid #2a3b4d; padding-top:20px;">
+            <!-- Actions will be injected here -->
+        </div>
+    </div>
+  </div>
+
+  <script>
+    let currentAssignmentId = null;
+    let allSubmissions = []; 
+    let currentClassStudents = [];
+    let currentManagerTab = 'submitted';
+
+    window.openAssignmentManager = async function(id, title) {
+        currentAssignmentId = id;
+        // Reset data when opening a new assignment
+        allSubmissions = [];
+        currentClassStudents = [];
+        
+        document.getElementById('modalTitle').textContent = '管理: ' + title;
+        document.getElementById('assignmentModal').style.display = 'block';
+        switchManagerTab('submitted');
+    };
+
+    window.switchManagerTab = function(tab) {
+        currentManagerTab = tab;
+        const btnSub = document.getElementById('tabSubmitted');
+        const btnUnsub = document.getElementById('tabUnsubmitted');
+        if(btnSub) btnSub.style.background = tab === 'submitted' ? '#2196F3' : '#37474f';
+        if(btnUnsub) btnUnsub.style.background = tab === 'unsubmitted' ? '#2196F3' : '#37474f';
+        
+        if (allSubmissions.length > 0 || currentClassStudents.length > 0) {
+            renderManagerList();
+        } else {
+            refreshManager();
+        }
+    };
+
+    window.refreshManager = async function() {
+        if(!currentAssignmentId) return;
+        const statsEl = document.getElementById('modalStats');
+        const listEl = document.getElementById('modalSubmissions');
+        
+        statsEl.innerHTML = '加载统计...';
+        listEl.innerHTML = '加载列表...';
+
+        try {
+            // 1. Get Assignment Info
+            const assignment = await DashboardAPI.apiGet(`/api/assignments/${currentAssignmentId}`);
+            window.currentAssignmentPublisher = assignment.teacher ? assignment.teacher.username : null;
+            
+            // 2. Get Stats and Submissions
+            const [stats, submissions] = await Promise.all([
+                DashboardAPI.apiGet(`/api/assignments/${currentAssignmentId}/stats`),
+                DashboardAPI.apiGet(`/api/assignments/${currentAssignmentId}/submissions`)
+            ]);
+            
+            allSubmissions = submissions; 
+            
+            // 3. Get Students (Catch error so it doesn't break the whole page)
+            currentClassStudents = [];
+            if (assignment.classId) {
+                try {
+                    const students = await DashboardAPI.apiGet(`/api/classes/${assignment.classId}/students`);
+                    currentClassStudents = Array.isArray(students) ? students : [];
+                } catch (e) {
+                    console.error("Failed to load students for class " + assignment.classId, e);
+                    // Continue without students list (Unsubmitted tab will be empty/incorrect but page works)
+                }
+            }
+
+            if (document.getElementById('submissionDetailModal').style.display === 'block' && typeof currentViewingSubmissionId !== 'undefined') {
+                openSubmissionDetail(currentViewingSubmissionId);
+            }
+
+            const rate = stats.totalStudents > 0 ? Math.round((stats.submittedCount / stats.totalStudents) * 100) : 0;
+            statsEl.innerHTML = `
+                <div style="display:flex; justify-content:space-around; text-align:center;">
+                    <div>
+                        <div style="font-size:24px; font-weight:bold;">${stats.totalStudents}</div>
+                        <div style="color:#888;">总人数</div>
+                    </div>
+                    <div>
+                        <div style="font-size:24px; font-weight:bold; color:#2196F3;">${stats.submittedCount}</div>
+                        <div style="color:#888;">已提交</div>
+                    </div>
+                    <div>
+                        <div style="font-size:24px; font-weight:bold; color:#4caf50;">${stats.gradedCount}</div>
+                        <div style="color:#888;">已批改</div>
+                    </div>
+                    <div>
+                        <div style="font-size:24px; font-weight:bold; color:#f44336;">${stats.returnedCount}</div>
+                        <div style="color:#888;">已打回</div>
+                    </div>
+                </div>
+                <div style="margin-top:15px; background:#37474f; height:10px; border-radius:5px; overflow:hidden;">
+                    <div style="width:${rate}%; background:#2196F3; height:100%;"></div>
+                </div>
+                <div style="text-align:right; font-size:12px; color:#ccc; margin-top:5px;">提交率: ${rate}%</div>
+            `;
+
+            renderManagerList();
+
+        } catch(err) {
+            const errMsg = err.data ? (err.data.error || JSON.stringify(err.data)) : (err.message || '未知错误');
+            statsEl.innerHTML = `<div style="color:#f55; padding:10px;">加载失败: ${errMsg}</div>`;
+            listEl.innerHTML = `<div style="color:#f55; padding:10px;">加载失败: ${errMsg}</div>`;
+            console.error(err);
+        }
+    };
+
+    window.renderManagerList = function() {
+        const listEl = document.getElementById('modalSubmissions');
+        
+        if (currentManagerTab === 'submitted') {
+             if (allSubmissions.length === 0) {
+                listEl.innerHTML = '<div style="padding:20px; text-align:center; color:#888;">暂无提交记录</div>';
+            } else {
+                listEl.innerHTML = allSubmissions.map(s => {
+                    const statusColor = s.status === 'GRADED' ? '#4caf50' : (s.status === 'RETURNED' ? '#f44336' : '#ff9800');
+                    let statusLabel = '';
+                    if (s.status === 'GRADED') {
+                        statusLabel = `<span style="font-weight:bold; color:#4caf50;">${s.score}分</span>`;
+                    } else if (s.status === 'RETURNED') {
+                        statusLabel = `<span style="color:#f44336;">需重做</span>`;
+                    } else {
+                        statusLabel = `<span style="color:#ff9800;">待批改</span>`;
+                    }
+
+                    return `
+                        <div class="list-item" style="border-left:4px solid ${statusColor};">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-weight:bold;">提交ID: #${s.id} | 学生ID: ${s.studentId}</div>
+                                    <div style="font-size:12px; color:#ccc;">${new Date(s.submittedAt).toLocaleString()}</div>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    ${statusLabel}
+                                    <button class="btn" style="width:auto; height:auto; padding:4px 8px; font-size:12px;" onclick="openSubmissionDetail(${s.id})">查看作业</button>
+                                </div>
+                            </div>
+                            ${s.feedback ? `<div style="margin-top:5px; font-size:12px; color:#aaa;">反馈: ${s.feedback}</div>` : ''}
+                        </div>
+                    `;
+                }).join('');
+            }
+        } else {
+            const submittedStudentIds = new Set(allSubmissions.map(s => s.studentId));
+            const unsubmitted = currentClassStudents.filter(stu => !submittedStudentIds.has(stu.id));
+            
+            if (unsubmitted.length === 0) {
+                listEl.innerHTML = '<div style="padding:20px; text-align:center; color:#888;">所有学生均已提交</div>';
+            } else {
+                listEl.innerHTML = unsubmitted.map(stu => `
+                    <div class="list-item" style="border-left:4px solid #78909c;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                             <div>
+                                <div style="font-weight:bold;">学生: ${stu.name} (ID: ${stu.id})</div>
+                                <div style="font-size:12px; color:#ccc;">学号: ${stu.studentNo || '无'}</div>
+                            </div>
+                            <span style="color:#78909c;">未提交</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+    };
+
+    window.openSubmissionDetail = function(submissionId) {
+        const s = allSubmissions.find(x => x.id === submissionId);
+        if (!s) return;
+
+        document.getElementById('subDetailTitle').textContent = `作业详情 #${s.id} (学生ID: ${s.studentId})`;
+        document.getElementById('subDetailContent').textContent = s.content;
+        
+        const actionsEl = document.getElementById('subDetailActions');
+        actionsEl.innerHTML = `
+            <div style="margin-bottom:10px;">
+                <label>评分 (0-100):</label>
+                <input type="number" id="gradeScore" value="${s.score !== null ? s.score : ''}" style="width:60px; padding:5px;">
+            </div>
+            <div style="margin-bottom:10px;">
+                <label>反馈:</label>
+                <textarea id="gradeFeedback" rows="2" style="width:100%;">${s.feedback || ''}</textarea>
+            </div>
+            <button class="btn" onclick="gradeSubmission(${s.id}, 'GRADED')" style="background:#4caf50;">评分并完成</button>
+            <button class="btn" onclick="gradeSubmission(${s.id}, 'RETURNED')" style="background:#f44336;">打回重做</button>
+        `;
+        
+        window.currentViewingSubmissionId = submissionId;
+        document.getElementById('submissionDetailModal').style.display = 'block';
+    };
+
+    window.gradeSubmission = async function(id, status) {
+        const scoreVal = document.getElementById('gradeScore').value;
+        const feedback = document.getElementById('gradeFeedback').value;
+        
+        const score = scoreVal ? Number(scoreVal) : null;
+        
+        try {
+            await DashboardAPI.apiPost(`/api/assignments/submissions/${id}/grade`, {
+                score, feedback, status
+            });
+            document.getElementById('submissionDetailModal').style.display = 'none';
+            refreshManager(); // Reload list
+        } catch(err) {
+            alert('操作失败: ' + (err.data?.error || err.message));
+        }
+    };
+    
+    // --- Attendance Logic ---
+    let attCurrentDate = new Date(); // Calendar month reference
+    let attSelectedDate = null; // Selected date YYYY-MM-DD
+    
+    async function loadAttendanceClasses() {
+        const select1 = document.getElementById('attClassSelect');
+        const select2 = document.getElementById('attReportClassSelect');
+        if (!select1 || !select2) return;
+        
+        try {
+            const list = await DashboardAPI.apiGet('/api/classes');
+            // Filter only owned or taught classes if needed, but API returns what user can access
+            const opts = list.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            select1.innerHTML = '<option value="">请选择班级...</option>' + opts;
+            select2.innerHTML = opts;
+            
+            // Auto select first if available
+            if(list.length > 0) {
+                // select1.value = list[0].id; // Don't auto select to force user choice
+            }
+        } catch(err) {
+            console.error("Failed to load attendance classes", err);
+        }
+    }
+    
+    window.onAttClassChange = function() {
+        // Reload calendar or list if date selected
+        if(attSelectedDate) loadAttendance();
+    }
+
+    window.changeAttMonth = function(delta) {
+        attCurrentDate.setMonth(attCurrentDate.getMonth() + delta);
+        renderAttCalendar();
+    }
+    
+    window.renderAttCalendar = function() {
+        const year = attCurrentDate.getFullYear();
+        const month = attCurrentDate.getMonth();
+        
+        const titleEl = document.getElementById('attCalTitle');
+        if(titleEl) titleEl.textContent = `${year}-${String(month+1).padStart(2,'0')}`;
+        
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        
+        const startDay = firstDay.getDay(); // 0=Sun
+        const totalDays = lastDay.getDate();
+        
+        const grid = document.getElementById('attCalGrid');
+        if(!grid) return;
+        
+        // Keep headers
+        // Re-create headers
+        grid.innerHTML = `
+            <span style="color:#888;">日</span><span style="color:#888;">一</span><span style="color:#888;">二</span><span style="color:#888;">三</span><span style="color:#888;">四</span><span style="color:#888;">五</span><span style="color:#888;">六</span>
+        `;
+        
+        // Blank slots
+        for(let i=0; i<startDay; i++) {
+            const div = document.createElement('div');
+            grid.appendChild(div);
+        }
+        
+        // Days
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        for(let d=1; d<=totalDays; d++) {
+            const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const btn = document.createElement('div');
+            btn.textContent = d;
+            btn.style.padding = '5px';
+            btn.style.cursor = 'pointer';
+            btn.style.borderRadius = '4px';
+            btn.style.textAlign = 'center';
+            
+            if (dateStr === attSelectedDate) {
+                btn.style.background = '#4caf50';
+                btn.style.color = '#fff';
+            } else if (dateStr === todayStr) {
+                btn.style.border = '1px solid #4caf50';
+            } else {
+                btn.onmouseover = () => { if(dateStr !== attSelectedDate) btn.style.background = 'rgba(255,255,255,0.1)'; };
+                btn.onmouseout = () => { if(dateStr !== attSelectedDate) btn.style.background = 'transparent'; };
+            }
+            
+            btn.onclick = () => selectAttDate(dateStr);
+            grid.appendChild(btn);
+        }
+    }
+    
+    window.selectAttDate = function(dateStr) {
+        attSelectedDate = dateStr;
+        document.getElementById('attSelectedDateDisplay').textContent = dateStr;
+        document.getElementById('attDateInput').value = dateStr;
+        document.getElementById('attListDateInfo').textContent = dateStr;
+        renderAttCalendar(); // Re-render to show selection
+        loadAttendance();
+    }
+    
+    window.loadAttendance = async function() {
+        const classId = document.getElementById('attClassSelect').value;
+        const date = attSelectedDate;
+        const listEl = document.getElementById('attendanceList');
+        const btnSave = document.getElementById('btnSaveAttendance');
+        
+        if (!classId || !date) {
+            listEl.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">请先选择班级和日期</div>';
+            btnSave.style.display = 'none';
+            return;
+        }
+        
+        listEl.innerHTML = '加载中...';
+        
+        try {
+            const data = await DashboardAPI.apiGet(`/api/attendance/class/${classId}?date=${date}`);
+            if (!Array.isArray(data)) throw new Error("Invalid data");
+            
+            btnSave.style.display = 'block';
+            
+            listEl.innerHTML = data.map(item => {
+                const status = item.status || 'PRESENT'; // Default to Present
+                // Status Radios
+                const radios = [
+                    { v: 'PRESENT', l: '出勤', c: '#4caf50' },
+                    { v: 'SICK', l: '病假', c: '#2196F3' },
+                    { v: 'PERSONAL', l: '事假', c: '#ff9800' },
+                    { v: 'LATE', l: '迟到', c: '#ffeb3b' },
+                    { v: 'ABSENT', l: '缺勤', c: '#f44336' }
+                ].map(opt => `
+                    <label style="margin-right:8px; cursor:pointer; color:${status === opt.v ? opt.c : '#ccc'}; font-weight:${status === opt.v ? 'bold' : 'normal'}">
+                        <input type="radio" name="status_${item.studentId}" value="${opt.v}" ${status === opt.v ? 'checked' : ''} onchange="this.parentElement.parentElement.parentElement.style.borderLeftColor='${opt.c}'; this.parentElement.parentElement.querySelectorAll('label').forEach(l=>l.style.color='#ccc'); this.parentElement.style.color='${opt.c}'"> 
+                        ${opt.l}
+                    </label>
+                `).join('');
+                
+                return `
+                    <div class="att-row" data-student-id="${item.studentId}" style="background:#1e2a38; margin-bottom:10px; padding:10px; border-radius:4px; border-left:4px solid ${status === 'PRESENT' ? '#4caf50' : (status === 'SICK' ? '#2196F3' : (status === 'PERSONAL' ? '#ff9800' : (status === 'LATE' ? '#ffeb3b' : '#f44336')))};">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                            <strong>${item.studentName} <span style="font-weight:normal; font-size:0.9em; color:#888;">(${item.studentNo || '无学号'})</span></strong>
+                            <span style="font-size:0.8em; color:#aaa;">${item.recorded ? '已录入' : '未录入'}</span>
+                        </div>
+                        <div style="margin-bottom:5px;">${radios}</div>
+                        <input type="text" class="att-remark" placeholder="备注..." value="${item.remarks || ''}" style="width:100%; background:#101820; border:1px solid #2a3b4d; color:#eee; padding:4px; font-size:12px;">
+                    </div>
+                `;
+            }).join('');
+            
+        } catch(err) {
+            console.error(err);
+            const msg = (err.data && (err.data.error || err.data.message)) || err.message || JSON.stringify(err);
+            listEl.innerHTML = '<div style="color:#f55;">加载失败: ' + msg + '</div>';
+            btnSave.style.display = 'none';
+        }
+    }
+    
+    window.saveAttendance = async function() {
+        const classId = document.getElementById('attClassSelect').value;
+        const date = attSelectedDate;
+        if(!classId || !date) return;
+        
+        const rows = document.querySelectorAll('.att-row');
+        const items = [];
+        
+        rows.forEach(row => {
+            const studentId = Number(row.dataset.studentId);
+            const statusInput = row.querySelector(`input[name="status_${studentId}"]:checked`);
+            const status = statusInput ? statusInput.value : 'PRESENT';
+            const remarks = row.querySelector('.att-remark').value;
+            
+            items.push({ studentId, status, remarks });
+        });
+        
+        try {
+            await DashboardAPI.apiPost('/api/attendance/batch', {
+                classId: Number(classId),
+                date: date,
+                items: items
+            });
+            alert('保存成功');
+            loadAttendance(); // Reload to update "recorded" status
+        } catch(err) {
+            alert('保存失败: ' + err.message);
+        }
+    }
+    
+    window.switchAttTab = function(tab) {
+        document.getElementById('attTabMark').style.display = tab === 'mark' ? 'block' : 'none';
+        document.getElementById('attTabReport').style.display = tab === 'report' ? 'block' : 'none';
+        document.getElementById('btnTabMark').classList.toggle('active', tab === 'mark');
+        document.getElementById('btnTabReport').classList.toggle('active', tab === 'report');
+        
+        if (tab === 'mark') renderAttCalendar();
+    }
+    
+    window.setAttReportRange = function(type) {
+        const startInput = document.getElementById('attReportStart');
+        const endInput = document.getElementById('attReportEnd');
+        const now = new Date();
+        let start, end;
+        
+        if (type === 'week') {
+            const day = now.getDay() || 7; // 1=Mon, 7=Sun
+            start = new Date(now);
+            start.setDate(now.getDate() - day + 1);
+            end = new Date(now);
+            end.setDate(now.getDate() + (7 - day));
+        } else if (type === 'month') {
+            start = new Date(now.getFullYear(), now.getMonth(), 1);
+            end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        } else if (type === 'term1') {
+            // Sept - Jan
+            // Logic: If currently in Sept-Dec, it's this year. If in Jan, it's prev year.
+            const currentMonth = now.getMonth(); // 0-11
+            const year = (currentMonth < 7) ? now.getFullYear() - 1 : now.getFullYear(); // If before Aug, prev year starts term
+            
+            start = new Date(year, 8, 1); // Sept 1
+            end = new Date(year + 1, 0, 31); // Jan 31 next year
+        } else if (type === 'term2') {
+            // Feb - Jun
+            const currentMonth = now.getMonth();
+            const year = (currentMonth > 7) ? now.getFullYear() + 1 : now.getFullYear();
+            
+            start = new Date(year, 1, 1); // Feb 1
+            end = new Date(year, 5, 30); // Jun 30
+        }
+        
+        startInput.value = start.toISOString().split('T')[0];
+        endInput.value = end.toISOString().split('T')[0];
+    }
+    
+    let currentReportData = null;
+    
+    window.loadAttReport = async function() {
+        const classId = document.getElementById('attReportClassSelect').value;
+        const start = document.getElementById('attReportStart').value;
+        const end = document.getElementById('attReportEnd').value;
+        const resultEl = document.getElementById('attReportResult');
+        
+        if (!classId || !start || !end) {
+            alert('请选择班级和日期范围');
+            return;
+        }
+        
+        resultEl.innerHTML = '加载中...';
+        
+        try {
+            const data = await DashboardAPI.apiGet(`/api/attendance/stats/class/${classId}?start=${start}&end=${end}`);
+            currentReportData = data;
+            
+            let html = `
+                <table class="table" style="width:100%; border-collapse:collapse; min-width:600px;">
+                    <thead>
+                        <tr style="background:#16212e;">
+                            <th style="padding:8px; border:1px solid #2a3b4d;">姓名</th>
+                            <th style="padding:8px; border:1px solid #2a3b4d;">学号</th>
+                            <th style="padding:8px; border:1px solid #2a3b4d; color:#4caf50;">出勤</th>
+                            <th style="padding:8px; border:1px solid #2a3b4d; color:#2196F3;">病假</th>
+                            <th style="padding:8px; border:1px solid #2a3b4d; color:#ff9800;">事假</th>
+                            <th style="padding:8px; border:1px solid #2a3b4d; color:#ffeb3b;">迟到</th>
+                            <th style="padding:8px; border:1px solid #2a3b4d; color:#f44336;">缺勤</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.students.forEach(s => {
+                const stats = s.stats || {};
+                html += `
+                    <tr>
+                        <td style="padding:8px; border:1px solid #2a3b4d;">${s.name}</td>
+                        <td style="padding:8px; border:1px solid #2a3b4d;">${s.studentNo || '-'}</td>
+                        <td style="padding:8px; border:1px solid #2a3b4d;">${stats.PRESENT || 0}</td>
+                        <td style="padding:8px; border:1px solid #2a3b4d;">${stats.SICK || 0}</td>
+                        <td style="padding:8px; border:1px solid #2a3b4d;">${stats.PERSONAL || 0}</td>
+                        <td style="padding:8px; border:1px solid #2a3b4d;">${stats.LATE || 0}</td>
+                        <td style="padding:8px; border:1px solid #2a3b4d;">${stats.ABSENT || 0}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            
+            if (data.students.length === 0) {
+                html = '<div style="padding:20px; text-align:center;">暂无数据</div>';
+            }
+            
+            resultEl.innerHTML = html;
+            
+        } catch(err) {
+            resultEl.innerHTML = '<div style="color:#f55;">加载失败: ' + err.message + '</div>';
+        }
+    }
+    
+    window.exportAttReport = function() {
+        if (!currentReportData || !currentReportData.students) {
+            alert('请先查询数据');
+            return;
+        }
+        
+        let csv = '姓名,学号,出勤,病假,事假,迟到,缺勤\n';
+        currentReportData.students.forEach(s => {
+             const stats = s.stats || {};
+             csv += `${s.name},${s.studentNo || ''},${stats.PRESENT||0},${stats.SICK||0},${stats.PERSONAL||0},${stats.LATE||0},${stats.ABSENT||0}\n`;
+        });
+        
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `attendance_report_${currentReportData.start}_${currentReportData.end}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+    
+    // Init Calendar
+    renderAttCalendar();
+
+
+    window.openGradeModal = function(id, currentScore='', currentFeedback='') {
+        const score = prompt("请输入分数 (0-100)", currentScore);
+        if (score === null) return;
+        const feedback = prompt("请输入评语", currentFeedback);
+        if (feedback === null) return;
+
+        DashboardAPI.apiPost(`/api/submissions/${id}/grade`, { score, feedback })
+            .then(() => {
+                alert('批改成功');
+                refreshManager();
+            })
+            .catch(err => alert('批改失败: ' + (err.data?.error || err.message)));
+    };
+
+    window.openReturnModal = function(id) {
+        const feedback = prompt("请输入打回原因/修改建议");
+        if (feedback === null) return;
+        // Default extension: 3 days from now
+        const defaultDate = new Date();
+        defaultDate.setDate(defaultDate.getDate() + 3);
+        const dateStr = defaultDate.toISOString().split('T')[0];
+        
+        const extendedDate = prompt("设置新的提交截止日期 (YYYY-MM-DD)", dateStr);
+        if (extendedDate === null) return;
+
+        DashboardAPI.apiPost(`/api/submissions/${id}/return`, { feedback, extendedDueDate: extendedDate })
+            .then(() => {
+                alert('已打回');
+                refreshManager();
+            })
+            .catch(err => alert('操作失败: ' + (err.data?.error || err.message)));
+    };
+  </script>
+</body>
+</html>

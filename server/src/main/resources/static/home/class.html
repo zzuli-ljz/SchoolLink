@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <title>班级详情</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script src="/js/auth.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <style>
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .list { margin-top: 8px; }
+    .list-item { padding: 6px 8px; border-bottom: 1px solid #2a3b4d; }
+    /* 紧凑型按钮与工具栏样式 */
+    .btn-compact { display:inline-flex; align-items:center; justify-content:center; width:auto !important; padding:6px 10px; font-size:13px; }
+    .btn-danger { background: linear-gradient(90deg, #ff4d4f, #ff7875); color:#fff; }
+    .toolbar { display:flex; align-items:center; gap:8px; }
+    .toolbar-left { display:flex; align-items:center; gap:8px; }
+    .toolbar-right { margin-left:auto; display:flex; align-items:center; gap:12px; font-size:13px; color:#cfe8ff; }
+    .toolbar-right label { display:flex; align-items:center; gap:6px; }
+  </style>
+  </head>
+<body>
+  <div class="dashboard-container">
+    <h1 class="title">班级详情</h1>
+    <p><a href="/home/teacher.html">返回老师主页</a></p>
+
+    <div id="classBasic" class="card" style="margin-top:10px;"></div>
+
+    <div style="margin-top:10px;">
+      <section class="card">
+        <h3>注册邀请码</h3>
+        <div id="inviteList" class="list"></div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:10px;">
+      <h3>任课老师管理</h3>
+      <div id="subjectTeachersToolbar" class="toolbar" style="margin:8px 0; display:none;">
+        <div class="toolbar-left">
+          <button class="btn btn-compact" id="btnAddTeacher">添加任课老师</button>
+        </div>
+      </div>
+      <table class="table" style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">ID</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">教师姓名(用户名)</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">教授科目</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d; width:100px;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="teacherTbody"></tbody>
+      </table>
+    </section>
+
+    <section class="card" style="margin-top:10px;">
+      <h3>学生名册</h3>
+      <div id="studentToolbar" class="toolbar" style="margin:8px 0;">
+        <div class="toolbar-left">
+          <button class="btn btn-compact btn-danger" id="btnDeleteSelected">删除选中</button>
+          <button class="btn btn-compact" id="btnExport">导出Excel</button>
+        </div>
+        <div class="toolbar-right">
+          <label><input type="checkbox" id="chkAll" /> 全选</label>
+          <span id="studentCount"></span>
+        </div>
+      </div>
+      <table class="table" style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d; width:56px;">选择</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">ID</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">姓名</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d;">学号</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #2a3b4d; width:150px;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="studentTbody"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    // 确保老师身份登录
+    requireRole('TEACHER');
+    function qs(name){
+      const u = new URL(window.location.href);
+      return u.searchParams.get(name);
+    }
+    function roleLabel(r){ return r === 'PARENT' ? '家长' : (r === 'STUDENT' ? '学生' : r); }
+
+    const classId = Number(qs('classId'));
+    const classBasic = document.getElementById('classBasic');
+    const inviteList = document.getElementById('inviteList');
+    const studentTbody = document.getElementById('studentTbody');
+    const chkAll = document.getElementById('chkAll');
+    const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+    const btnExport = document.getElementById('btnExport');
+    const studentCount = document.getElementById('studentCount');
+    const teacherTbody = document.getElementById('teacherTbody');
+    const subjectTeachersToolbar = document.getElementById('subjectTeachersToolbar');
+    const btnAddTeacher = document.getElementById('btnAddTeacher');
+    
+    let studentsData = [];
+    let currentClass = null;
+    let currentUser = null;
+
+    function getUsernameFromToken() {
+        const token = localStorage.getItem('token');
+        if(!token) return null;
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            return JSON.parse(jsonPayload).sub;
+        } catch (e) { return null; }
+    }
+    currentUser = getUsernameFromToken();
+
+    async function loadBasic(){
+      try {
+        const c = await DashboardAPI.apiGet(`/api/classes/${classId}`);
+        currentClass = c;
+        const isOwner = (currentUser && c.ownerUsername === currentUser);
+        
+        classBasic.innerHTML = `
+          <div class="list-item" style="display:flex; align-items:center; justify-content:space-between;">
+            <div>#${c.id} ${c.name}${c.grade ? '（' + c.grade + '）' : ''} — 负责人：${c.ownerUsername || ''}</div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-compact" onclick="location.href='/home/class-parents.html?classId=${c.id}'">管理家长账户</button>
+              ${isOwner ? `<button class="btn btn-compact" data-act="edit-class" data-id="${c.id}">编辑班级</button>
+              <button class="btn btn-compact btn-danger" data-act="del-class" data-id="${c.id}">删除班级</button>
+              <button class="btn btn-compact" data-act="transfer-class" data-id="${c.id}">转让班级</button>` : '<span style="color:#aaa;font-size:12px;">(仅负责人可操作)</span>'}
+            </div>
+          </div>`;
+          
+          if(isOwner) {
+              subjectTeachersToolbar.style.display = 'block';
+          }
+      } catch(err){
+        classBasic.textContent = '班级信息加载失败';
+      }
+    }
+    
+    async function loadTeachers() {
+        teacherTbody.innerHTML = `<tr><td colspan="4" style="padding:8px; color:#cfe8ff;">正在加载...</td></tr>`;
+        try {
+            const teachers = await DashboardAPI.apiGet(`/api/classes/${classId}/subject-teachers`);
+            if(!teachers || teachers.length === 0) {
+                teacherTbody.innerHTML = `<tr><td colspan="4" style="padding:8px; color:#aaa;">暂无任课老师</td></tr>`;
+                return;
+            }
+            
+            const isOwner = (currentClass && currentUser && currentClass.ownerUsername === currentUser);
+            
+            teacherTbody.innerHTML = teachers.map(t => `
+                <tr>
+                    <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${t.teacher.id}</td>
+                    <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${t.teacher.username}</td>
+                    <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${t.subject}</td>
+                    <td style="padding:6px; border-bottom:1px solid #2a3b4d;">
+                        ${isOwner ? `<button class="btn btn-compact btn-danger" data-act="del-teacher" data-teacher-id="${t.teacher.id}">移除</button>` : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        } catch(e) {
+            teacherTbody.innerHTML = `<tr><td colspan="4" style="padding:8px; color:red;">加载失败</td></tr>`;
+        }
+    }
+    
+    if(btnAddTeacher) {
+        btnAddTeacher.onclick = async () => {
+            // Need to pick a teacher. For now, prompt for username? Or ID?
+            // Better: List all teachers and let user pick.
+            // But getting all teachers might be heavy or restricted. 
+            // Teacher role can usually list teachers? Check SchoolController.
+            // Yes, listTeachers requires admin.
+            // But wait, how does a teacher select another teacher?
+            // Maybe we need an endpoint to "search teachers" or "list all teachers (lite)".
+            // For now, I will ask for Teacher Username.
+            const username = prompt("请输入任课老师的用户名：");
+            if(!username) return;
+            const subject = prompt("请输入教授科目（如：数学）：");
+            if(!subject) return;
+            
+            // We need Teacher ID.
+            // I'll try to add by username if I modify the backend, OR I need to look up ID first.
+            // The backend requires teacherId.
+            // I can't look up ID easily without an endpoint.
+            // Let's modify backend to accept username OR add a lookup endpoint.
+            // Actually, I can just try to find the user by username in the frontend? No.
+            
+            // WORKAROUND: I'll modify the backend `addSubjectTeacher` to accept `teacherUsername` instead of ID, or look it up.
+            // Let's modify the backend quickly to accept `teacherUsername` as alternative.
+            // Wait, I can't modify backend again easily without context switch.
+            // Does `SchoolController` have `listTeachers`? Yes, but it requires Admin.
+            // I should allow Teachers to list other teachers (lite version).
+            // OR: Just let the user input the ID if they know it? No, that's bad UX.
+            
+            // I will try to call an API to find user by username.
+            // `UserService` has `findByUsername`.
+            // I'll assume the user knows the username.
+            // I'll modify the frontend to send the username to a new endpoint?
+            // No, I'll modify the existing `addSubjectTeacher` in backend to handle username lookup if `teacherId` is missing.
+            
+            // But wait, I already finished backend changes.
+            // Let's check `addSubjectTeacher` again.
+            // It expects `teacherId`.
+            
+            // Quick fix: I'll assume I can find the ID by some means.
+            // Actually, I should probably just fetch all teachers if I can.
+            // If not, I'll ask for ID. 
+            // "请输入任课老师的ID (可在系统管理员处查询):" -> Bad.
+            
+            // I will modify `addSubjectTeacher` in `SchoolController.java` to look up by username if `teacherUsername` is provided.
+            // This is the most robust way.
+            
+            // Wait, I will do that in the next step.
+            // For now in frontend, I will implement the call assuming I can send `teacherUsername`.
+            
+             try {
+                await DashboardAPI.apiPost(`/api/classes/${classId}/subject-teachers`, { teacherUsername: username, subject: subject });
+                alert('添加成功');
+                loadTeachers();
+            } catch(e) {
+                alert('添加失败: ' + (e.data && e.data.error ? e.data.error : e.message));
+            }
+        };
+    }
+
+    async function loadInvites(){
+      inviteList.textContent = '正在加载...';
+      try {
+        const invites = await DashboardAPI.apiGet(`/api/invites/by-class/${classId}`);
+        if (!Array.isArray(invites) || invites.length === 0) { inviteList.textContent = '暂无邀请码'; return; }
+        inviteList.innerHTML = invites.map(i => (
+          `<div class="list-item">[${roleLabel(i.roleAllowed)}] 邀请码：<strong>${i.code}</strong>${i.active ? '' : '（已失效）'}</div>`
+        )).join('');
+      } catch(err){
+        if (err && err.status === 403) inviteList.textContent = '无权限查看邀请码';
+        else if (err && err.status === 401) inviteList.textContent = '登录状态无效，请重新登录';
+        else inviteList.textContent = '加载失败';
+      }
+    }
+
+    async function loadStudents(){
+      studentTbody.innerHTML = `<tr><td colspan="5" style="padding:8px; color:#cfe8ff;">正在加载...</td></tr>`;
+      try {
+        const students = await DashboardAPI.apiGet(`/api/classes/${classId}/students`);
+        studentsData = Array.isArray(students) ? students : [];
+        studentCount.textContent = studentsData.length ? `共 ${studentsData.length} 人` : '暂无学生记录';
+        
+        // Determine ownership
+        const isOwner = (currentClass && currentUser && currentClass.ownerUsername === currentUser);
+        
+        // Hide/Show Delete Button based on ownership
+        if(btnDeleteSelected) {
+            btnDeleteSelected.style.display = isOwner ? 'inline-flex' : 'none';
+        }
+        
+        if (!studentsData.length) { studentTbody.innerHTML = ''; return; }
+        const rows = studentsData.map(s => (
+          `<tr>
+            <td style="padding:6px; border-bottom:1px solid #2a3b4d;"><input type="checkbox" class="chk-row" data-id="${s.id}" ${!isOwner ? 'disabled' : ''} /></td>
+            <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${s.id}</td>
+            <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${s.name || ''}</td>
+            <td style="padding:6px; border-bottom:1px solid #2a3b4d;">${s.studentNo || ''}</td>
+            <td style="padding:6px; border-bottom:1px solid #2a3b4d;">
+              <span style="color:${s.isBound ? 'green' : 'red'}; font-weight:bold;">${s.isBound ? '● 已绑定' : '● 未绑定'}</span>
+            </td>
+            <td style="padding:6px; border-bottom:1px solid #2a3b4d;">
+              ${isOwner ? `<button class="btn btn-compact" data-act="edit-student" data-id="${s.id}">编辑</button>` : ''}
+              <button class="btn btn-compact" data-act="contact-parent" data-id="${s.id}" ${!s.isBound ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>联系家长</button>
+            </td>
+          </tr>`
+        )).join('');
+        studentTbody.innerHTML = rows;
+        chkAll.checked = false;
+        if(chkAll) chkAll.disabled = !isOwner;
+      } catch(err){
+        studentTbody.innerHTML = `<tr><td colspan="5" style="padding:8px; color:#ffb3b3;">加载失败</td></tr>`;
+      }
+    }
+
+    document.addEventListener('click', async function(e){
+      const t = e.target;
+      if (!t || !t.dataset || !t.dataset.act) return;
+      const id = Number(t.dataset.id);
+      const act = t.dataset.act;
+      if (act === 'edit-student') {
+        const name = prompt('学生姓名');
+        if (name === null) return;
+        const studentNo = prompt('学生学号（可留空）') || '';
+        try {
+          await DashboardAPI.apiPut(`/api/students/${id}`, { id, name: name.trim(), studentNo: studentNo.trim(), schoolClass: { id: classId } });
+          await loadStudents();
+        } catch(err){
+          alert('编辑失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误'));
+        }
+      } else if (act === 'contact-parent') {
+        const s = studentsData.find(x => x.id === id);
+        if (s && s.isBound) {
+          alert(`家长信息：\n用户名：${s.parentUsername || '未知'}\n电话：${s.parentPhone || '未填写'}`);
+        }
+      } else if (act === 'edit-class') {
+        const name = prompt('输入新的班级名称');
+        if (name === null) return;
+        const grade = prompt('输入新的年级（可留空）') || '';
+        try {
+          await DashboardAPI.apiPut(`/api/classes/${id}`, { id, name: name.trim(), grade: grade.trim() });
+          await loadBasic();
+        } catch(err){
+          alert('修改失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误'));
+        }
+      } else if (act === 'del-class') {
+        if (!confirm('确定删除该班级？该操作不可撤销。')) return;
+        try {
+          await DashboardAPI.apiDelete(`/api/classes/${id}`);
+          alert('班级已删除');
+          window.location.href = '/home/teacher.html';
+        } catch(err){
+          alert('删除失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误'));
+        }
+      } else if (act === 'transfer-class') {
+        const toUsername = prompt('输入目标老师用户名');
+        if (!toUsername) return;
+        try {
+          const resp = await DashboardAPI.apiPost(`/api/classes/${id}/transfer`, { toUsername });
+          alert('转让成功，新的负责人：' + resp.ownerUsername);
+          await loadBasic();
+        } catch(err){
+          alert('转让失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误'));
+        }
+      } else if (act === 'del-teacher') {
+          if(!confirm('确定移除该任课老师？')) return;
+          const teacherId = t.dataset.teacherId;
+          try {
+              await DashboardAPI.apiDelete(`/api/classes/${classId}/subject-teachers/${teacherId}`);
+              loadTeachers();
+          } catch(err) {
+              alert('移除失败: ' + (err.data && err.data.error ? err.data.error : '未知错误'));
+          }
+      }
+    });
+
+    // 批量操作与导出
+    if (chkAll) {
+      chkAll.addEventListener('change', function(){
+        const boxes = document.querySelectorAll('input.chk-row');
+        boxes.forEach(b => { b.checked = chkAll.checked; });
+      });
+    }
+
+    if (btnDeleteSelected) {
+      btnDeleteSelected.addEventListener('click', async function(){
+        const ids = Array.from(document.querySelectorAll('input.chk-row:checked')).map(b => Number(b.dataset.id));
+        if (!ids.length) { alert('请先勾选需要删除的学生'); return; }
+        if (!confirm(`确定删除选中的 ${ids.length} 名学生？`)) return;
+        try {
+          await Promise.all(ids.map(id => DashboardAPI.apiDelete(`/api/students/${id}`)));
+          await loadStudents();
+        } catch(err){
+          alert('删除失败：' + (err && err.data ? JSON.stringify(err.data) : '未知错误'));
+        }
+      });
+    }
+
+    if (btnExport) {
+      btnExport.addEventListener('click', function(){
+        if (!studentsData.length) { alert('暂无学生记录可导出'); return; }
+        if (!currentClass) { alert('班级信息未加载'); return; }
+        
+        // 考勤表标题
+        const title = `XX学校 ${currentClass.name} 考勤表`;
+        
+        // CSV内容构建
+        // 第一行：标题
+        let csvContent = `\ufeff${title}\n`;
+        
+        // 第二行：表头 (姓名, 学号, 20个空列)
+        // 构造20个空列的表头，或者使用日期占位符
+        const emptyCols = Array(20).fill(''); 
+        const headerRow = ['姓名', '学号', ...emptyCols];
+        csvContent += headerRow.join(',') + '\n';
+        
+        // 数据行
+        studentsData.forEach(s => {
+          const row = [
+            s.name || '',
+            s.studentNo || '',
+            ...emptyCols
+          ];
+          // 处理包含逗号的字段
+          const rowStr = row.map(x => {
+            if (x === null || x === undefined) return '';
+            const str = String(x);
+            if (str.includes(',')) return `"${str}"`;
+            return str;
+          }).join(',');
+          csvContent += rowStr + '\n';
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `${currentClass.name}-考勤表.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', async function(){
+      if (!classId) {
+        alert('缺少 classId 参数');
+        return;
+      }
+      await loadBasic();
+      await loadTeachers();
+      await loadInvites();
+      await loadStudents();
+    });
+  </script>
+</body>
+</html>

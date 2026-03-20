@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>家长端 - 家校通</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script src="/js/auth.js"></script>
+  <script src="/js/dashboard.js?v=2"></script>
+  <style>
+    /* 补充样式 */
+    .status-badge { padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    .status-UNFINISHED { background: #ffeeba; color: #856404; }
+    .status-COMPLETED { background: #d4edda; color: #155724; }
+    .status-EXPIRED { background: #f8d7da; color: #721c24; }
+    .status-PENDING_GRADING { background: #cce5ff; color: #004085; }
+    .status-RETURNED { background: #fff3cd; color: #856404; }
+    
+    .modal {
+        display: none; 
+        position: fixed; 
+        z-index: 1000; 
+        left: 0; 
+        top: 0; 
+        width: 100%; 
+        height: 100%; 
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+    }
+    .modal-content {
+        background: #2d3748; /* Dark theme compatible bg */
+        color: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        width: 400px;
+        max-width: 90%;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .modal-content h3 { margin-top: 0; }
+    
+    /* Fix for dark theme inputs in modal */
+    .modal input, .modal textarea, .modal select {
+        width: 100%;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: #fff;
+        padding: 8px;
+        border-radius: 4px;
+        margin-top: 5px;
+    }
+    
+    .form-actions {
+        margin-top: 15px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+  <div class="layout">
+      <aside class="sidebar">
+        <div style="padding: 20px; font-weight: bold; font-size: 18px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">家长端</div>
+        <ul class="menu">
+          <li><a href="#sec-overview" class="menu-item active">首页概览</a></li>
+          <li><a href="#sec-notices" class="menu-item">通知公告</a></li>
+          <li><a href="#sec-assignments" class="menu-item">作业管理</a></li>
+          <li><a href="#sec-attendance" class="menu-item">考勤记录</a></li>
+          <li><a href="#sec-performance" class="menu-item">成绩表现</a></li>
+          <li><a href="#sec-communication" class="menu-item">家校沟通</a></li>
+          <li><a href="#sec-affairs" class="menu-item">事务办理</a></li>
+          <li><a href="#" onclick="logout()" class="menu-item">退出登录</a></li>
+        </ul>
+      </aside>
+
+      <main class="main">
+        <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <h2 class="title" style="margin:0; text-align:left;">家长工作台</h2>
+          <div class="user-info" style="font-size:14px; color:#cfe8ff;">
+            <span id="current-user">家长</span> | <span id="class-name">加载中...</span>
+          </div>
+        </header>
+
+        <!-- Overview -->
+        <section id="sec-overview" class="section card active">
+          <h3>欢迎您，<span id="welcome-name"></span></h3>
+          <div style="margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+            <div style="margin-bottom: 8px;"><strong>当前绑定学生ID：</strong></div>
+            <div style="display:flex; gap:10px;">
+                <input type="number" id="currentStudentId" class="input" placeholder="请输入学生ID" style="width: 150px;">
+                <button class="btn" onclick="saveStudentId()" style="width:auto; padding:0 20px;">保存</button>
+            </div>
+            <p style="font-size: 12px; color: #80deea; margin-top: 8px;">* 请输入您孩子的学生ID以查看作业和成绩。</p>
+          </div>
+          <div class="card-grid">
+            <div class="card">
+              <h3>待办作业</h3>
+              <p class="stat-val" style="font-size:24px; color:#00bcd4;" id="stat-assignments">-</p>
+            </div>
+            <div class="card">
+              <h3>未读通知</h3>
+              <p class="stat-val" style="font-size:24px; color:#00bcd4;" id="stat-notices">-</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Notices -->
+        <section id="sec-notices" class="section card">
+          <h3>通知公告</h3>
+          <div id="noticeList">加载中...</div>
+        </section>
+
+        <!-- Assignments -->
+        <section id="sec-assignments" class="section card">
+          <h3>作业管理</h3>
+          <div id="assignmentList">请先在首页设置学生ID</div>
+        </section>
+
+        <!-- Attendance -->
+        <section id="sec-attendance" class="section card">
+          <h3>考勤记录</h3>
+          
+          <div style="margin-bottom: 15px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <input type="date" id="pAttStart" style="padding:5px; background:#16212e; border:1px solid #2a3b4d; color:white; border-radius:4px;">
+              <span style="color:#888;">至</span>
+              <input type="date" id="pAttEnd" style="padding:5px; background:#16212e; border:1px solid #2a3b4d; color:white; border-radius:4px;">
+              <button class="btn" style="width:auto; height:30px; font-size:12px;" onclick="loadAttendance()">查询</button>
+              
+              <div style="display:flex; gap:5px;">
+                  <button class="btn" style="width:auto; height:30px; font-size:12px; background:#2a3b4d;" onclick="setParentAttRange('month')">本月</button>
+                  <button class="btn" style="width:auto; height:30px; font-size:12px; background:#2a3b4d;" onclick="setParentAttRange('semester1')">上学期</button>
+                  <button class="btn" style="width:auto; height:30px; font-size:12px; background:#2a3b4d;" onclick="setParentAttRange('semester2')">下学期</button>
+              </div>
+          </div>
+
+          <div id="attendanceList">加载中...</div>
+        </section>
+
+        <!-- Performance -->
+        <section id="sec-performance" class="section card">
+          <h3>成绩与表现</h3>
+          <div style="display:flex; gap:10px; margin-bottom:15px; align-items:center;">
+              <select id="perfExamSelect" onchange="loadPerformance()" style="padding:5px; background:#16212e; border:1px solid #2a3b4d; color:white; border-radius:4px;">
+                  <option value="">请选择考试...</option>
+              </select>
+              <button class="btn" style="width:auto; height:30px; font-size:12px;" onclick="loadPerformance()">刷新</button>
+          </div>
+          
+          <div id="performanceList">请先在首页设置学生ID</div>
+          
+          <div id="perfAnalysis" style="margin-top:20px; border-top:1px solid #2a3b4d; padding-top:10px; display:none;">
+              <h4>成绩分析</h4>
+              <div id="perfChart" style="display:flex; gap:10px; flex-wrap:wrap;">
+                  <!-- Analysis items -->
+              </div>
+          </div>
+        </section>
+
+        <!-- Communication -->
+        <section id="sec-communication" class="section card">
+          <h3>家校沟通</h3>
+          
+          <div style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
+            <button class="btn" style="width:auto; height:36px; font-size:14px;" onclick="showCommTab('teacher')">联系老师</button>
+            <button class="btn" style="width:auto; height:36px; font-size:14px; background: linear-gradient(135deg, #0097a7, #006064);" onclick="showCommTab('feedback')">学校反馈</button>
+          </div>
+
+          <!-- Contact Teacher -->
+          <div id="comm-teacher">
+            <h4>与班主任沟通</h4>
+            <div style="display:flex; height:400px; gap:10px; border:1px solid #2a3b4d; border-radius:4px;">
+               <div id="msgInbox" style="width:30%; border-right:1px solid #2a3b4d; overflow-y:auto; background:rgba(0,0,0,0.2);">加载中...</div>
+               <div id="msgConversation" style="flex:1; display:flex; flex-direction:column;">
+                  <div id="msgList" style="flex:1; overflow-y:auto; padding:10px;">请选择左侧联系人</div>
+                  <div style="border-top:1px solid #2a3b4d; padding:10px; background:rgba(0,0,0,0.2);">
+                     <textarea id="msgContent" rows="2" style="width:100%; margin-bottom:5px; background:#16212e; color:#fff; border:1px solid #2a3b4d; padding:5px;" placeholder="输入消息..."></textarea>
+                     <button class="btn" onclick="sendMessage()">发送</button>
+                  </div>
+               </div>
+            </div>
+          </div>
+
+          <!-- Feedback -->
+          <div id="comm-feedback" style="display:none;">
+            <h4>向学校反馈</h4>
+            <form onsubmit="sendFeedback(event)">
+              <div class="form-row">
+                <textarea id="fbContent" class="input" rows="3" required placeholder="请输入对学校的建议或意见..." style="height:auto; padding-top:10px;"></textarea>
+              </div>
+              <button type="submit" class="btn" style="width:100px;">提交反馈</button>
+            </form>
+            <div style="margin-top: 20px;">
+              <h4>我的反馈</h4>
+              <div id="fbList">加载中...</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Affairs -->
+        <section id="sec-affairs" class="section card">
+          <h3>事务办理</h3>
+          
+          <div style="margin-bottom: 15px;">
+            <button class="btn" style="width:auto; height:36px; font-size:14px;" onclick="showAffairTab('leave')">请假申请</button>
+            <button class="btn" style="width:auto; height:36px; font-size:14px; background: linear-gradient(135deg, #0097a7, #006064);" onclick="showAffairTab('event')">活动报名</button>
+          </div>
+
+          <!-- Leave -->
+          <div id="affair-leave">
+            <button class="btn" style="width:auto;" onclick="openLeaveModal()">新建请假</button>
+            <div id="leaveList" style="margin-top: 15px;">加载中...</div>
+          </div>
+
+          <!-- Events -->
+          <div id="affair-event" style="display:none;">
+            <div id="eventList">加载中...</div>
+          </div>
+        </section>
+      </main>
+  </div>
+</div>
+
+<!-- Leave Modal -->
+<div id="leaveModal" class="modal">
+    <div class="modal-content">
+        <h3>申请请假</h3>
+        <form onsubmit="submitLeave(event)">
+            <div class="form-row" style="flex-direction:column; align-items:flex-start;">
+                <label>学生ID</label>
+                <input type="number" id="leaveStudentId" required readonly />
+            </div>
+            <div class="form-row" style="flex-direction:column; align-items:flex-start;">
+                <label>类型</label>
+                <select id="leaveType">
+                    <option value="SICK">病假</option>
+                    <option value="PERSONAL">事假</option>
+                </select>
+            </div>
+            <div class="form-row" style="flex-direction:column; align-items:flex-start;">
+                <label>开始时间</label>
+                <input type="date" id="leaveStart" required />
+            </div>
+            <div class="form-row" style="flex-direction:column; align-items:flex-start;">
+                <label>结束时间</label>
+                <input type="date" id="leaveEnd" required />
+            </div>
+            <div class="form-row" style="flex-direction:column; align-items:flex-start;">
+                <label>理由</label>
+                <textarea id="leaveReason" required rows="3"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn" style="background:#666;" onclick="closeLeaveModal()">取消</button>
+                <button type="submit" class="btn">提交</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Assignment Submit Modal -->
+<div id="submitModal" class="modal">
+    <div class="modal-content" style="width:600px; max-width:90%;">
+        <h3 id="modalTitle">作业详情</h3>
+        <div id="modalMeta" style="font-size:12px; color:#b0bec5; margin-bottom:15px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1);"></div>
+        
+        <div style="margin-bottom:15px;">
+            <h4 style="margin:0 0 5px 0; color:#80deea;">作业要求</h4>
+            <div id="modalAssignmentContent" style="background:rgba(0,0,0,0.2); padding:10px; border-radius:4px; font-size:14px; white-space:pre-wrap;"></div>
+        </div>
+
+        <div id="modalFeedbackSection" style="margin-bottom:15px; display:none;">
+            <h4 style="margin:0 0 5px 0; color:#ff9800;">老师评语</h4>
+            <div id="modalFeedbackContent" style="background:rgba(255,152,0,0.1); color:#ffcc80; padding:10px; border-radius:4px; font-size:14px;"></div>
+        </div>
+
+        <form onsubmit="doSubmitAssignment(event)">
+            <input type="hidden" id="submitAssignmentId">
+            <div class="form-row" style="flex-direction:column; align-items:flex-start;">
+                <label style="color:#a5d6a7;">我的提交</label>
+                <textarea id="submitContent" rows="5" required placeholder="请输入作业内容..."></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn" style="background:#666;" onclick="document.getElementById('submitModal').style.display='none'">关闭</button>
+                <button type="submit" class="btn" id="btnSubmit">提交</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let myClass = null;
+let currentStudentId = '';
+let boundStudentUsername = '';
+let currentPeerUsername = null;
+let allAssignments = []; // Store assignments globally
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await requireRole('PARENT');
+    DashboardAPI.initTabs();
+    
+    document.getElementById('current-user').textContent = DashboardAPI.getToken() ? '家长' : '未登录';
+    document.getElementById('welcome-name').textContent = DashboardAPI.getToken() ? '家长' : '';
+    
+    // Check backend for bound student
+    try {
+        const user = await DashboardAPI.apiGet('/api/users/me');
+        if (user && user.boundStudentId) {
+            currentStudentId = user.boundStudentId;
+            document.getElementById('currentStudentId').value = currentStudentId;
+            document.getElementById('currentStudentId').disabled = true;
+            
+            // Try to get student name
+            try {
+                const stu = await DashboardAPI.apiGet(`/api/students/${currentStudentId}`);
+                if (stu && stu.name) {
+                     // Add a label showing connected student
+                     const label = document.createElement('div');
+                     label.style.marginTop = '5px';
+                     label.style.color = '#4caf50';
+                     label.textContent = `已绑定: ${stu.name} (${stu.studentNo || ''})`;
+                     document.getElementById('currentStudentId').parentNode.appendChild(label);
+                }
+            } catch(_) {}
+        }
+    } catch(e) {
+        console.log('No bound student or error', e);
+    }
+
+    await loadClassInfo();
+    loadNotices();
+    if (currentStudentId) {
+        loadAssignments();
+        loadLeaves();
+        loadAttendance();
+        loadPerformance();
+    }
+    loadStudentContacts();
+    loadFeedbacks();
+});
+
+async function saveStudentId() {
+    const id = document.getElementById('currentStudentId').value;
+    if (id) {
+        try {
+            await DashboardAPI.apiPost('/api/parent/bind-student', { studentId: parseInt(id) });
+            currentStudentId = id;
+            alert('绑定成功');
+            document.getElementById('currentStudentId').disabled = true;
+            loadAssignments();
+            loadLeaves();
+            loadAttendance();
+            loadPerformance();
+        } catch(err) {
+            alert('绑定失败: ' + (err.data?.error || err.message));
+        }
+    }
+}
+
+async function loadClassInfo() {
+    try {
+        const data = await DashboardAPI.apiGet('/api/my-class');
+        myClass = data;
+        document.getElementById('class-name').textContent = data.grade + '级 ' + data.name;
+    } catch (err) {
+        document.getElementById('class-name').textContent = '未加入班级';
+    }
+}
+
+async function loadNotices() {
+    const list = document.getElementById('noticeList');
+    try {
+        // Fetch all notices (backend filters by scope/class)
+        const data = await DashboardAPI.apiGet('/api/notices/feed');
+        document.getElementById('stat-notices').textContent = data.length;
+        
+        list.innerHTML = data.length ? data.map(n => `
+            <div class="list-item">
+                <div style="display:flex; justify-content:space-between;">
+                    <strong style="color:#e3f2fd;">${n.title}</strong>
+                    <span class="status-badge" style="background:rgba(255,255,255,0.1);">${n.scope}</span>
+                </div>
+                <div style="color:#b0bec5; font-size:0.9em; margin:5px 0;">${n.content}</div>
+                <div style="font-size:12px; color:#78909c;">
+                    发布人: ${n.senderName || '管理员'} | 时间: ${new Date(n.createdAt).toLocaleString()}
+                    ${n.allowSignUp ? `<button class="btn" style="width:auto; height:24px; font-size:12px; margin-left:10px; padding:0 10px;" onclick="signUpNotice(${n.id})">报名</button>` : ''}
+                </div>
+            </div>
+        `).join('') : '<p style="color:#b0bec5;">暂无通知</p>';
+        
+        // Populate events list too
+        const events = data.filter(n => n.allowSignUp);
+        const eventList = document.getElementById('eventList');
+        eventList.innerHTML = events.length ? events.map(n => `
+            <div class="list-item">
+                <strong>${n.title}</strong>
+                <p>${n.content}</p>
+                <button class="btn" style="width:auto; height:30px;" onclick="signUpNotice(${n.id})">立即报名</button>
+            </div>
+        `).join('') : '<p style="color:#b0bec5;">暂无活动</p>';
+        
+    } catch (err) {
+        list.innerHTML = '加载失败';
+    }
+}
+
+async function signUpNotice(id) {
+    if (!confirm('确定要报名吗？')) return;
+    try {
+        await DashboardAPI.apiPost(`/api/notices/${id}/signup`);
+        alert('报名成功');
+    } catch(err) {
+        alert('报名失败: ' + (err.data?.error || err.message));
+    }
+}
+
+async function loadAssignments() {
+    const list = document.getElementById('assignmentList');
+    if (!currentStudentId) {
+        list.innerHTML = '<p style="color:#ff8a80;">请先在首页设置学生ID</p>';
+        return;
+    }
+    
+    try {
+        const data = await DashboardAPI.apiGet(`/api/student/assignments?studentId=${currentStudentId}`);
+        allAssignments = data; // Store globally
+        document.getElementById('stat-assignments').textContent = data.filter(a => a.status === 'UNFINISHED').length;
+        
+        list.innerHTML = data.length ? data.map(d => {
+            // Logic for description/return reason
+            let middleContent = '';
+            if (d.status === 'RETURNED' && d.submission && d.submission.feedback) {
+                middleContent = `<div style="margin:5px 0; color:#ff9800; font-weight:bold;">退回原因: ${d.submission.feedback}</div>`;
+            } else if (d.assignment.description) {
+                middleContent = `<div style="margin:5px 0; color:#b0bec5;">${d.assignment.description}</div>`;
+            }
+
+            return `
+            <div class="list-item" onclick="openAssignmentDetail(${d.assignment.id})" style="cursor:pointer;">
+                <div style="display:flex; justify-content:space-between;">
+                    <strong>${d.assignment.title}</strong>
+                    <span class="status-badge status-${d.status}">${getStatusText(d.status)}</span>
+                </div>
+                ${middleContent}
+                <div style="font-size:12px; color:#78909c;">
+                    截止: ${
+                        (d.status === 'RETURNED' && d.submission && d.submission.extendedDueDate) 
+                        ? `<span style="color:#ff9800;">${new Date(d.submission.extendedDueDate).toLocaleDateString()} (延期)</span>` 
+                        : (d.assignment.dueDate ? new Date(d.assignment.dueDate).toLocaleDateString() : '无')
+                    }
+                    ${d.submission ? `<br>得分: <span style="color:#80deea;">${d.submission.score != null ? d.submission.score : '未评分'}</span>` : ''}
+                </div>
+                <div style="display:flex; justify-content:flex-end; margin-top:5px;">
+                   <button class="btn" style="width:auto; height:24px; font-size:12px; padding:0 10px;">查看详情</button>
+                </div>
+            </div>
+            `;
+        }).join('') : '<p style="color:#b0bec5;">暂无作业</p>';
+    } catch (err) {
+        list.innerHTML = '加载失败: ' + (err.data?.error || err.message);
+    }
+}
+
+function getStatusText(status) {
+    const map = { 'UNFINISHED': '未完成', 'COMPLETED': '已完成', 'EXPIRED': '已过期', 'PENDING_GRADING': '待评分', 'RETURNED': '已退回' };
+    return map[status] || status;
+}
+
+window.openAssignmentDetail = function(id) {
+    // Use loose equality to handle potential string/number mismatches
+    const item = allAssignments.find(d => d.assignment.id == id);
+    if (!item) {
+        console.error('Assignment not found for id:', id);
+        alert('无法加载作业详情，请刷新页面重试');
+        return;
+    }
+
+    const a = item.assignment;
+    const s = item.submission;
+
+    document.getElementById('submitAssignmentId').value = a.id;
+    document.getElementById('modalTitle').textContent = a.title;
+    
+    // Meta
+    const dueDate = (item.status === 'RETURNED' && s && s.extendedDueDate) 
+        ? `${new Date(s.extendedDueDate).toLocaleDateString()} (延期)`
+        : (a.dueDate ? new Date(a.dueDate).toLocaleDateString() : '无');
+    document.getElementById('modalMeta').textContent = `截止: ${dueDate} | 状态: ${getStatusText(item.status)}`;
+    
+    // Assignment Content
+    document.getElementById('modalAssignmentContent').textContent = a.content || '无内容';
+
+    // Feedback
+    const fbSection = document.getElementById('modalFeedbackSection');
+    if (s && s.feedback) {
+        fbSection.style.display = 'block';
+        let fbText = s.feedback;
+        if (s.score != null) fbText += ` (得分: ${s.score})`;
+        document.getElementById('modalFeedbackContent').textContent = fbText;
+    } else {
+        fbSection.style.display = 'none';
+    }
+
+    // Submission Content
+    const subTextarea = document.getElementById('submitContent');
+    const btnSubmit = document.getElementById('btnSubmit');
+    
+    if (s) {
+        subTextarea.value = s.content || '';
+    } else {
+        subTextarea.value = '';
+    }
+
+    // Logic for readonly/submit
+    if (item.status === 'COMPLETED' || item.status === 'PENDING_GRADING' || item.status === 'EXPIRED') {
+        subTextarea.disabled = true;
+        btnSubmit.style.display = 'none';
+        subTextarea.placeholder = (item.status === 'EXPIRED') ? '已过期' : '已提交';
+    } else {
+        // UNFINISHED or RETURNED
+        subTextarea.disabled = false;
+        btnSubmit.style.display = 'inline-block';
+        btnSubmit.textContent = (item.status === 'RETURNED') ? '重新提交' : '提交';
+        subTextarea.placeholder = '请输入作业内容...';
+    }
+
+    document.getElementById('submitModal').style.display = 'flex';
+};
+
+async function doSubmitAssignment(e) {
+    e.preventDefault();
+    const id = document.getElementById('submitAssignmentId').value;
+    const content = document.getElementById('submitContent').value;
+    
+    try {
+        await DashboardAPI.apiPost(`/api/assignments/${id}/submissions`, {
+            content,
+            studentId: parseInt(currentStudentId)
+        });
+        alert('提交成功');
+        document.getElementById('submitModal').style.display = 'none';
+        loadAssignments();
+    } catch (err) {
+        alert('提交失败: ' + (err.data?.error || err.message));
+    }
+}
+
+// Communication
+function showCommTab(tab) {
+    document.getElementById('comm-teacher').style.display = tab === 'teacher' ? 'block' : 'none';
+    document.getElementById('comm-feedback').style.display = tab === 'feedback' ? 'block' : 'none';
+}
+
+async function sendMessage(e) {
+    if(e) e.preventDefault();
+    const content = document.getElementById('msgContent').value;
+    if(!content.trim()) return;
+
+    try {
+        await DashboardAPI.apiPost('/api/messages', {
+            receiver: currentPeerUsername || (myClass && myClass.ownerUsername) || '',
+            content
+        });
+        document.getElementById('msgContent').value = '';
+        if (currentPeerUsername) {
+            await loadChat(currentPeerUsername);
+        } else {
+            loadStudentContacts();
+        }
+    } catch(err) {
+        alert('发送失败: ' + (err.data?.error || err.message));
+    }
+}
+
+async function loadStudentContacts() {
+    const inbox = document.getElementById('msgInbox');
+    if (!inbox) return;
+    inbox.innerHTML = '<div style="padding:10px;">加载中...</div>';
+    
+    try {
+         const contacts = await DashboardAPI.apiGet('/api/student/contacts');
+         let html = '';
+         
+         if (contacts && Array.isArray(contacts.teachers) && contacts.teachers.length > 0) {
+             html += '<div style="padding:5px 10px; font-size:12px; color:#888;">老师</div>';
+             for (const t of contacts.teachers) {
+                 html += `
+                   <div class="list-item" style="cursor:pointer; padding:10px; border-bottom:1px solid #2a3b4d; background:rgba(255,255,255,0.05);" onclick="openChat('${t.username}', '${t.role}')">
+                       <div style="font-weight:bold;">${t.role} (${t.subject||''})</div>
+                       <div style="font-size:12px; color:#888;">${t.username}</div>
+                   </div>
+                 `;
+             }
+         } else {
+             html += '<div style="padding:10px; color:#666;">暂无老师信息</div>';
+         }
+
+         if (boundStudentUsername) {
+             html += '<div style="padding:5px 10px; font-size:12px; color:#888;">我的孩子</div>';
+             html += `
+               <div class="list-item" style="cursor:pointer; padding:10px; border-bottom:1px solid #2a3b4d; background:rgba(255,255,255,0.05);" onclick="openChat('${boundStudentUsername}', '孩子')">
+                   <div style="font-weight:bold;">孩子 (${boundStudentUsername})</div>
+                   <div style="font-size:12px; color:#888;">点击发消息</div>
+               </div>
+             `;
+         }
+         
+         if (!html) html = '<div style="padding:10px; color:#888;">暂无联系人</div>';
+         inbox.innerHTML = html;
+    } catch(err) {
+        console.error(err);
+        inbox.innerHTML = '加载失败';
+    }
+}
+
+function openChat(username, label) {
+    currentPeerUsername = username;
+    loadChat(username, label);
+}
+
+async function loadChat(username, label) {
+    const list = document.getElementById('msgList');
+    try {
+        const conv = await DashboardAPI.apiGet(`/api/messages?with=${username}`);
+        conv.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+        list.innerHTML = conv.length ? conv.map(m => `
+           <div style="text-align: ${m.senderUsername === username ? 'left' : 'right'}; margin-bottom:10px;">
+               <div style="font-size:12px; color:#78909c;">${m.senderUsername === username ? label || '对方' : '我'} - ${new Date(m.createdAt).toLocaleString()}</div>
+               <div style="background: ${m.senderUsername === username ? 'rgba(255,255,255,0.1)' : '#006064'}; display:inline-block; padding:8px; border-radius:8px; margin-top:5px; max-width:80%; text-align:left; word-wrap:break-word;">${m.content}</div>
+           </div>
+       `).join('') : '<p style="color:#b0bec5;">暂无消息记录</p>';
+       list.scrollTop = list.scrollHeight;
+    } catch(err) {
+        list.innerHTML = '加载失败';
+    }
+}
+
+// Feedback
+async function sendFeedback(e) {
+    e.preventDefault();
+    const content = document.getElementById('fbContent').value;
+    try {
+        await DashboardAPI.apiPost('/api/feedback', { content });
+        alert('提交成功');
+        document.getElementById('fbContent').value = '';
+        loadFeedbacks();
+    } catch(err) {
+        alert('提交失败');
+    }
+}
+
+async function loadFeedbacks() {
+    const list = document.getElementById('fbList');
+    try {
+        const items = await DashboardAPI.apiGet('/api/feedback'); // Parents fetch their own
+        list.innerHTML = items.length ? items.map(f => `
+            <div class="list-item">
+                <div>${f.content}</div>
+                <div style="font-size:12px; color:#78909c;">${new Date(f.createdAt).toLocaleString()}</div>
+                ${f.reply ? `<div style="background:rgba(255,255,255,0.05); padding:5px; margin-top:5px; border-radius:4px;">回复: <span style="color:#80deea;">${f.reply}</span></div>` : ''}
+            </div>
+        `).join('') : '<p style="color:#b0bec5;">暂无反馈</p>';
+    } catch(err) {
+        list.innerHTML = '加载失败';
+    }
+}
+
+// Affairs
+function showAffairTab(tab) {
+    document.getElementById('affair-leave').style.display = tab === 'leave' ? 'block' : 'none';
+    document.getElementById('affair-event').style.display = tab === 'event' ? 'block' : 'none';
+}
+
+function openLeaveModal() {
+    if (!currentStudentId) { alert('请先设置学生ID'); return; }
+    document.getElementById('leaveStudentId').value = currentStudentId;
+    document.getElementById('leaveModal').style.display = 'flex';
+}
+
+function closeLeaveModal() {
+    document.getElementById('leaveModal').style.display = 'none';
+}
+
+async function submitLeave(event) {
+    event.preventDefault();
+    
+    // Validate student ID
+    const studentIdVal = document.getElementById('leaveStudentId').value;
+    if (!studentIdVal) {
+        alert('学生ID缺失');
+        return;
+    }
+
+    const type = document.getElementById('leaveType').value;
+
+    try {
+        await DashboardAPI.apiPost('/api/leaves', {
+            studentId: parseInt(studentIdVal),
+            type: type,
+            dateFrom: document.getElementById('leaveStart').value,
+            dateTo: document.getElementById('leaveEnd').value,
+            reason: document.getElementById('leaveReason').value
+        });
+        alert('提交成功');
+        closeLeaveModal();
+        loadLeaves();
+    } catch (err) {
+        console.error(err);
+        alert('提交失败: ' + (err.data?.error || err.message || '未知错误'));
+    }
+}
+
+async function loadLeaves() {
+    const list = document.getElementById('leaveList');
+    if (!currentStudentId) return;
+    try {
+        const data = await DashboardAPI.apiGet('/api/leaves'); 
+        list.innerHTML = data.length ? data.map(l => `
+            <div class="list-item">
+                <div style="display:flex; justify-content:space-between;">
+                    <strong>请假申请</strong>
+                    <span class="status-badge" style="background:${l.status==='APPROVED'?'#d4edda':(l.status==='REJECTED'?'#f8d7da':'#fff3cd')}; color:#333;">${l.status}</span>
+                </div>
+                <div style="font-size:12px; color:#b0bec5; margin:5px 0;">${l.dateFrom} 至 ${l.dateTo}</div>
+                <div>理由: ${l.reason}</div>
+            </div>
+        `).join('') : '<p style="color:#b0bec5;">暂无请假记录</p>';
+    } catch(err) {
+        list.innerHTML = '加载失败';
+    }
+}
+
+async function loadAttendance() {
+    const list = document.getElementById('attendanceList');
+    if (!currentStudentId) {
+        list.innerHTML = '<p style="color:#ff8a80;">请先设置学生ID</p>';
+        return;
+    }
+    
+    const start = document.getElementById('pAttStart').value;
+    const end = document.getElementById('pAttEnd').value;
+    
+    if (!start || !end) {
+        // Fallback if empty (though setParentAttRange should handle it)
+        setParentAttRange('month');
+        return loadAttendance(); 
+    }
+    
+    list.innerHTML = '<div style="color:#888;">加载中...</div>';
+
+    try {
+        const data = await DashboardAPI.apiGet(`/api/attendance/student/${currentStudentId}?start=${start}&end=${end}`);
+        
+        if (!data || data.length === 0) {
+            list.innerHTML = `<p>该时间段 (${start} ~ ${end}) 暂无考勤记录</p>`;
+            return;
+        }
+        
+        // Summarize
+        const stats = { PRESENT: 0, SICK: 0, PERSONAL: 0, LATE: 0, ABSENT: 0 };
+        data.forEach(d => {
+            if (stats[d.status] !== undefined) stats[d.status]++;
+        });
+        
+        let html = `
+        <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+            <div class="stat-box" style="background:#d4edda; color:#155724; padding:5px 10px; border-radius:4px;">出勤: ${stats.PRESENT}</div>
+            <div class="stat-box" style="background:#cce5ff; color:#004085; padding:5px 10px; border-radius:4px;">病假: ${stats.SICK}</div>
+            <div class="stat-box" style="background:#fff3cd; color:#856404; padding:5px 10px; border-radius:4px;">事假: ${stats.PERSONAL}</div>
+            <div class="stat-box" style="background:#e2e3e5; color:#383d41; padding:5px 10px; border-radius:4px;">迟到: ${stats.LATE}</div>
+            <div class="stat-box" style="background:#f8d7da; color:#721c24; padding:5px 10px; border-radius:4px;">缺勤: ${stats.ABSENT}</div>
+        </div>
+        <table class="table" style="width:100%; border-collapse: collapse;">
+            <thead><tr><th style="border-bottom:1px solid #444; text-align:left; padding:5px;">日期</th><th style="border-bottom:1px solid #444; text-align:left; padding:5px;">状态</th><th style="border-bottom:1px solid #444; text-align:left; padding:5px;">备注</th></tr></thead>
+            <tbody>
+        `;
+        
+        const mapStatus = { PRESENT: '出勤', SICK: '病假', PERSONAL: '事假', LATE: '迟到', ABSENT: '缺勤' };
+        
+        // Sort by date desc
+        data.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+        html += data.map(d => `
+            <tr>
+                <td style="padding:5px; border-bottom:1px solid #333;">${d.date}</td>
+                <td style="padding:5px; border-bottom:1px solid #333;">
+                    <span class="status-badge" style="
+                        background:${d.status==='PRESENT'?'#d4edda':(d.status==='ABSENT'?'#f8d7da':'#fff3cd')};
+                        color:${d.status==='PRESENT'?'#155724':(d.status==='ABSENT'?'#721c24':'#856404')};
+                    ">
+                    ${mapStatus[d.status] || d.status}
+                    </span>
+                </td>
+                <td style="padding:5px; border-bottom:1px solid #333;">${d.remarks || ''}</td>
+            </tr>
+        `).join('');
+        
+        html += '</tbody></table>';
+        list.innerHTML = html;
+        
+    } catch(err) {
+        list.innerHTML = '加载失败: ' + (err.data?.error || err.message);
+    }
+}
+
+function setParentAttRange(type) {
+    const end = new Date();
+    let start = new Date();
+    const y = end.getFullYear();
+
+    if (type === 'month') {
+        start.setDate(1);
+    } else if (type === 'semester1') {
+        const sy = (end.getMonth() + 1) < 9 ? y - 1 : y;
+        start = new Date(sy, 8, 1); 
+        const ey = sy + 1;
+        end.setFullYear(ey);
+        end.setMonth(0); 
+        end.setDate(31);
+    } else if (type === 'semester2') {
+        start = new Date(y, 1, 1); 
+        end.setMonth(5); 
+        end.setDate(30);
+    }
+    
+    const sStr = start.toISOString().split('T')[0];
+    const eStr = end.toISOString().split('T')[0];
+
+    document.getElementById('pAttStart').value = sStr;
+    document.getElementById('pAttEnd').value = eStr;
+    
+    // Only reload if we are calling this manually, not during init if desired (but here we call it during init so it's fine)
+    // Actually, during init we call loadAttendance after this.
+}
+
+async function loadPerformance() {
+    if (!currentStudentId) return;
+    
+    // Load exams if empty
+    const examSelect = document.getElementById('perfExamSelect');
+    if (examSelect.options.length <= 1) {
+        try {
+            const exams = await DashboardAPI.apiGet('/api/exams');
+            // Sort by ID desc (newest first)
+            exams.sort((a,b) => b.id - a.id);
+            exams.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e.id;
+                opt.textContent = `${e.name} (${e.semester})`;
+                examSelect.appendChild(opt);
+            });
+            // Select first
+            if (exams.length > 0) {
+                examSelect.value = exams[0].id;
+            }
+        } catch(e) { console.error('Failed to load exams', e); }
+    }
+    
+    const examId = examSelect.value;
+    if (!examId) {
+        document.getElementById('performanceList').textContent = "暂无考试信息";
+        return;
+    }
+
+    try {
+        const data = await DashboardAPI.apiGet(`/api/grades/my?examId=${examId}&studentId=${currentStudentId}`);
+        const list = document.getElementById('performanceList');
+        
+        let html = `<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap:10px;">`;
+        
+        let total = 0;
+        let count = 0;
+        let max = 0;
+        
+        data.grades.forEach(g => {
+            let scoreVal = g.score;
+            let color = '#4caf50';
+            if (scoreVal === '-') {
+                color = '#777';
+            } else {
+                scoreVal = parseFloat(scoreVal);
+                total += scoreVal;
+                count++;
+                if (scoreVal > max) max = scoreVal;
+                if (scoreVal < 60) color = '#f44336';
+            }
+            
+            html += `
+            <div style="background:#2a3b4d; padding:10px; border-radius:4px; text-align:center;">
+                <div style="font-size:14px; color:#b0bec5;">${g.subject}</div>
+                <div style="font-size:24px; color:${color}; font-weight:bold;">${g.score}</div>
+            </div>`;
+        });
+        html += `</div>`;
+        
+        list.innerHTML = html;
+        
+        // Analysis
+        const analysis = document.getElementById('perfAnalysis');
+        const chart = document.getElementById('perfChart');
+        if (count > 0) {
+            analysis.style.display = 'block';
+            const avg = (total / count).toFixed(1);
+            chart.innerHTML = `
+                <div style="background:#006064; padding:10px; border-radius:4px; flex:1; text-align:center;">
+                    <div style="font-size:12px; color:#b2ebf2;">平均分</div>
+                    <div style="font-size:20px; color:#fff;">${avg}</div>
+                </div>
+                <div style="background:#ff6f00; padding:10px; border-radius:4px; flex:1; text-align:center;">
+                    <div style="font-size:12px; color:#ffcc80;">最高分</div>
+                    <div style="font-size:20px; color:#fff;">${max}</div>
+                </div>
+                <div style="background:#1b5e20; padding:10px; border-radius:4px; flex:1; text-align:center;">
+                    <div style="font-size:12px; color:#c8e6c9;">科目数</div>
+                    <div style="font-size:20px; color:#fff;">${count}</div>
+                </div>
+            `;
+        } else {
+            analysis.style.display = 'none';
+        }
+        
+    } catch(err) {
+        document.getElementById('performanceList').innerHTML = `<div style="color:salmon;">加载失败: ${err.data?.error || err.message}</div>`;
+    }
+}
+
+function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    window.location.href = '/';
+}
+</script>
+</body>
+</html>
