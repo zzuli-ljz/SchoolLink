@@ -1,25 +1,17 @@
-# Force Render to re-sync
-FROM eclipse-temurin:17-jdk-jammy
-
+# 使用预装了 Maven 和 JDK 17 的镜像
+FROM maven:3.8.5-openjdk-17 AS build
 WORKDIR /app
 
-# Copy Maven wrapper and pom file from the 'server' subdirectory
-COPY server/mvnw ./
-COPY server/.mvn/ .mvn/
-COPY server/pom.xml ./
+# 复制整个 server 目录
+COPY server/ ./
 
-# Ensure mvnw is executable
-RUN chmod +x mvnw
+# 直接使用 maven 构建打包
+RUN mvn clean package -DskipTests
 
-# Download dependencies
-RUN ./mvnw dependency:go-offline
+# 运行阶段
+FROM eclipse-temurin:17-jdk-jammy
+WORKDIR /app
+COPY --from=build /app/target/schoollink-0.0.1-SNAPSHOT.jar app.jar
 
-# Copy source code from the 'server' subdirectory
-COPY server/src/ ./src/
-
-# Build the application
-RUN ./mvnw clean package -DskipTests
-
-# Expose port and run the application
 EXPOSE 8081
-CMD ["java", "-jar", "target/schoollink-0.0.1-SNAPSHOT.jar"]
+CMD ["java", "-jar", "app.jar"]
